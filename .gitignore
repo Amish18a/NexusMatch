@@ -1,0 +1,15 @@
+#compiled C++ files
+*.exe
+*.out
+*.o
+
+#VS Code
+.vscode/
+
+#Build Folders
+build/
+bin/
+
+#OS files
+.DS_Store
+Thumbs.db
