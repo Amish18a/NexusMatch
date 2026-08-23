@@ -1,5 +1,6 @@
 #include <iostream>
 #include "../include/Player.h"
+#include "../include/Queue.h"
 
 int main()
 {
@@ -7,17 +8,20 @@ int main()
     Player p2(102,"Gurveer",1490,"India","Ranked",38,91);
     Player p3(103,"Ruya",1520,"India","Ranked",51,97);
 
-    p1.setWaiting(true);
-    p2.setWaiting(true);
-    p3.setWaiting(true);
+    PlayerQueue matchmakingQueue(5);
 
-    p1.setWaitingTime(18);
-    p2.setWaitingTime(25);
-    p3.setWaitingTime(10);
-    
-    p1.display();
-    p2.display();
-    p3.display();
+    matchmakingQueue.enqueue(p1);
+    matchmakingQueue.enqueue(p2);
+    matchmakingQueue.enqueue(p3);
 
+    matchmakingQueue.display();
+
+    std::cout << "\nRemoving first player...\n";
+    Player removedPlayer = matchmakingQueue.dequeue();
+    std::cout << "Removed: "
+              << removedPlayer.getName()
+              << '\n';
+
+    matchmakingQueue.display();
     return 0;
 }
