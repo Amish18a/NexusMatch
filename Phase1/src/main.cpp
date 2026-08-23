@@ -1,6 +1,6 @@
 #include <iostream>
 #include "../include/Player.h"
-#include "../include/Queue.h"
+#include "../include/Hashtable.h"
 
 int main()
 {
@@ -8,20 +8,30 @@ int main()
     Player p2(102,"Gurveer",1490,"India","Ranked",38,91);
     Player p3(103,"Ruya",1520,"India","Ranked",51,97);
 
-    PlayerQueue matchmakingQueue(5);
+    Player p4(111, "Player4", 1480, "India", "Ranked", 45, 90);
+    Player p5(121, "Player5", 1500, "India", "Ranked", 49, 93);
 
-    matchmakingQueue.enqueue(p1);
-    matchmakingQueue.enqueue(p2);
-    matchmakingQueue.enqueue(p3);
+    HashTable players(10);
 
-    matchmakingQueue.display();
+    players.insert(p1);
+    players.insert(p2);
+    players.insert(p3);
+    players.insert(p4);
+    players.insert(p5);
 
-    std::cout << "\nRemoving first player...\n";
-    Player removedPlayer = matchmakingQueue.dequeue();
-    std::cout << "Removed: "
-              << removedPlayer.getName()
-              << '\n';
+    players.display();
 
-    matchmakingQueue.display();
+    std::cout << "\nSearching for Player Id 121...\n";
+
+    Player* result = players.search(121);
+
+    if(result!=nullptr)
+    {
+        result->display();
+    }
+    else 
+    {
+        std::cout << "Player not found.\n";
+    }
     return 0;
 }
