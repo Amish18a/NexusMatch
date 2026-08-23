@@ -25,6 +25,7 @@ class PlayerQueue
         int getSize() const;
 
         void display() const;
+        bool removePlayer(int playerId);
 };
 
 #endif

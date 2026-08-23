@@ -120,6 +120,181 @@ void AVLTree::insert(const Player& player)
     root = insertNode(root,player);
 }
 
+void AVLTree::remove(const Player& player)
+{
+    root =
+        deleteNode(
+            root,
+            player.getSkill(),
+            player.getId()
+        );
+}
+
+AVLTree::Node* AVLTree::getMinValueNode(Node* node)
+{
+    Node* current = node;
+
+    while (current->left != nullptr)
+    {
+        current = current->left;
+    }
+
+    return current;
+}
+AVLTree::Node* AVLTree::deleteNode(
+    Node* node,
+    int skill,
+    int playerId
+)
+{
+    if (node == nullptr)
+    {
+        return nullptr;
+    }
+
+    int currentSkill =
+        node->player.getSkill();
+
+    int currentId =
+        node->player.getId();
+
+    // Search for the player
+    if (skill < currentSkill)
+    {
+        node->left =
+            deleteNode(
+                node->left,
+                skill,
+                playerId
+            );
+    }
+    else if (skill > currentSkill)
+    {
+        node->right =
+            deleteNode(
+                node->right,
+                skill,
+                playerId
+            );
+    }
+    else
+    {
+        // Same skill found
+        // Check player ID because
+        // multiple players can have same skill
+        if (playerId < currentId)
+        {
+            node->left =
+                deleteNode(
+                    node->left,
+                    skill,
+                    playerId
+                );
+        }
+        else if (playerId > currentId)
+        {
+            node->right =
+                deleteNode(
+                    node->right,
+                    skill,
+                    playerId
+                );
+        }
+        else
+        {
+            // Player found
+
+            // Case 1: no child
+            if (node->left == nullptr &&
+                node->right == nullptr)
+            {
+                delete node;
+                return nullptr;
+            }
+
+            // Case 2: only right child
+            if (node->left == nullptr)
+            {
+                Node* temp = node->right;
+
+                delete node;
+
+                return temp;
+            }
+
+            // Case 3: only left child
+            if (node->right == nullptr)
+            {
+                Node* temp = node->left;
+
+                delete node;
+
+                return temp;
+            }
+
+            // Case 4: two children
+            Node* successor =
+                getMinValueNode(node->right);
+
+            node->player =
+                successor->player;
+
+            node->right =
+                deleteNode(
+                    node->right,
+                    successor->player.getSkill(),
+                    successor->player.getId()
+                );
+        }
+    }
+
+    // Update height
+    node->height =
+        1 + getMax(
+            getHeight(node->left),
+            getHeight(node->right)
+        );
+
+    // Check balance
+    int balance =
+        getBalanceFactor(node);
+
+    // LL
+    if (balance > 1 &&
+        getBalanceFactor(node->left) >= 0)
+    {
+        return rightRotate(node);
+    }
+
+    // LR
+    if (balance > 1 &&
+        getBalanceFactor(node->left) < 0)
+    {
+        node->left =
+            leftRotate(node->left);
+
+        return rightRotate(node);
+    }
+
+    // RR
+    if (balance < -1 &&
+        getBalanceFactor(node->right) <= 0)
+    {
+        return leftRotate(node);
+    }
+
+    // RL
+    if (balance < -1 &&
+        getBalanceFactor(node->right) > 0)
+    {
+        node->right =
+            rightRotate(node->right);
+
+        return leftRotate(node);
+    }
+
+    return node;
+}
 void AVLTree::inorderTraversal(Node* node) const
 {
     if (node == nullptr)

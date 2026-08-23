@@ -30,6 +30,8 @@ class AVLTree
         Node* rightRotate(Node* y);
         Node* leftRotate(Node* x);
         Node* insertNode(Node* node,const Player& player);
+        Node* deleteNode(Node* node, int skill, int playerId);
+        Node* getMinValueNode(Node* node);
         void inorderTraversal(Node* node) const;
         void destroyTree(Node* node);
         void collectRange(Node* node,int minSkill,int maxSkill,std::vector<Player>& candidates) const;
@@ -39,6 +41,7 @@ class AVLTree
         AVLTree();
         ~AVLTree();
         void insert(const Player& player);
+        void remove(const Player& player);
         void displayInorder() const;
         Player* findClosestPlayer(int targetSkill,int tolerance) const;    
         void getPlayersInRange(int minSkill,int maxSkill,std::vector<Player>& candidates) const;

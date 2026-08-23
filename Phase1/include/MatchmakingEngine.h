@@ -2,6 +2,7 @@
 #define MATCHMAKINGENGINE_H
 #include "Player.h"
 #include "AVLTree.h"
+#include<vector>
 class MatchmakingEngine
 {
     private:
@@ -19,5 +20,6 @@ class MatchmakingEngine
     public:
         MatchmakingEngine();
         bool findMatch(const Player& player,AVLTree& skillTree,Player& matchedPlayer) const;
+        bool findGroupMatch(const Player& player,AVLTree& skillTree,int matchSize,std::vector<Player>& matchedPlayers) const;
 };
 #endif

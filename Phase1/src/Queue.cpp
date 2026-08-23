@@ -89,3 +89,44 @@ void PlayerQueue::display() const
     }
     std::cout << "============================================\n";
 }
+
+bool PlayerQueue::removePlayer(int playerId)
+{
+    if (isEmpty())
+    {
+        return false;
+    }
+
+    int current = front;
+
+    for (int i = 0; i < size; i++)
+    {
+        if (players[current].getId() == playerId)
+        {
+            int next = current;
+
+            for (int j = i; j < size - 1; j++)
+            {
+                int nextIndex =
+                    (next + 1) % capacity;
+
+                players[next] =
+                    players[nextIndex];
+
+                next = nextIndex;
+            }
+
+            rear =
+                (rear - 1 + capacity) % capacity;
+
+            size--;
+
+            return true;
+        }
+
+        current =
+            (current + 1) % capacity;
+    }
+
+    return false;
+}

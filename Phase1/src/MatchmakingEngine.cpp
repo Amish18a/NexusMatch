@@ -164,3 +164,135 @@ bool MatchmakingEngine::findMatch(
 
     return found;
 }
+
+bool MatchmakingEngine::findGroupMatch(
+    const Player& player,
+    AVLTree& skillTree,
+    int matchSize,
+    std::vector<Player>& matchedPlayers
+) const
+{
+    matchedPlayers.clear();
+
+    if (matchSize < 2)
+    {
+        return false;
+    }
+
+    int tolerance = 100;
+
+    int minSkill =
+        player.getSkill() - tolerance;
+
+    int maxSkill =
+        player.getSkill() + tolerance;
+
+    std::vector<Player> candidates;
+
+    skillTree.getPlayersInRange(
+        minSkill,
+        maxSkill,
+        candidates
+    );
+
+    // Store candidate and its score
+    std::vector<std::pair<Player, double>> scoredCandidates;
+
+    for (const Player& candidate : candidates)
+    {
+        // Do not select the anchor player
+        if (candidate.getId() == player.getId())
+        {
+            continue;
+        }
+
+        // Region must match
+        if (candidate.getRegion() != player.getRegion())
+        {
+            continue;
+        }
+
+        // Game mode must match
+        if (candidate.getGameMode() != player.getGameMode())
+        {
+            continue;
+        }
+
+        double skillScore =
+            calculateSkillScore(
+                player,
+                candidate
+            );
+
+        double pingScore =
+            calculatePingScore(
+                player,
+                candidate
+            );
+
+        double trustScore =
+            calculateTrustScore(
+                player,
+                candidate
+            );
+
+        double waitingScore =
+            calculateWaitingScore(
+                player
+            );
+
+        double finalScore =
+              (skillScore * 0.50)
+            + (pingScore * 0.20)
+            + (trustScore * 0.20)
+            + (waitingScore * 0.10);
+
+        scoredCandidates.push_back(
+            {candidate, finalScore}
+        );
+    }
+
+    // We need matchSize - 1 other players
+    int requiredCandidates =
+        matchSize - 1;
+
+    if (scoredCandidates.size() < requiredCandidates)
+    {
+        return false;
+    }
+
+    // Sort candidates from highest score to lowest
+    for (int i = 0;
+         i < scoredCandidates.size() - 1;
+         i++)
+    {
+        for (int j = 0;
+             j < scoredCandidates.size() - i - 1;
+             j++)
+        {
+            if (scoredCandidates[j].second <
+                scoredCandidates[j + 1].second)
+            {
+                std::swap(
+                    scoredCandidates[j],
+                    scoredCandidates[j + 1]
+                );
+            }
+        }
+    }
+
+    // Add anchor player first
+    matchedPlayers.push_back(player);
+
+    // Add the best candidates
+    for (int i = 0;
+         i < requiredCandidates;
+         i++)
+    {
+        matchedPlayers.push_back(
+            scoredCandidates[i].first
+        );
+    }
+
+    return true;
+}
