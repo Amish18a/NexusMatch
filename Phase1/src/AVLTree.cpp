@@ -186,3 +186,51 @@ Player* AVLTree::findClosestPlayer(int targetSkill,int tolerance) const
     }
     return &(result->player);
 }
+
+void AVLTree::collectRange(
+    Node* node,
+    int minSkill,
+    int maxSkill,
+    std::vector<Player>& candidates
+) const
+{
+    if (node == nullptr)
+    {
+        return;
+    }
+
+    int skill = node->player.getSkill();
+
+    // Check current node
+    if (skill >= minSkill && skill <= maxSkill)
+    {
+        candidates.push_back(node->player);
+    }
+
+    // Search left subtree
+    if (skill >= minSkill)
+    {
+        collectRange(
+            node->left,
+            minSkill,
+            maxSkill,
+            candidates
+        );
+    }
+
+    // Search right subtree
+    if (skill <= maxSkill)
+    {
+        collectRange(
+            node->right,
+            minSkill,
+            maxSkill,
+            candidates
+        );
+    }
+}
+
+void AVLTree::getPlayersInRange(int minSkill,int maxSkill,std::vector<Player>& candidates) const
+{
+    collectRange(root,minSkill,maxSkill,candidates);
+}

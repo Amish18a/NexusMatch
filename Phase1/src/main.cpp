@@ -1,39 +1,49 @@
 #include <iostream>
 #include "../include/Player.h"
 #include "../include/AVLTree.h"
+#include "../include/MatchmakingEngine.h"
 
 int main()
 {
-    Player p1(101,"Amish",1520,"India","Ranked",42,94);
-    Player p2(102,"Gurveer",1490,"India","Ranked",38,91);
-    Player p3(103,"Ruya",1520,"India","Ranked",51,97);
+    Player amish(101,"Amish",1520,"India","Ranked",42,94);
+    Player gurveer(102,"Gurveer",1490,"India","Ranked",38,91);
+    Player riya(103,"Riya",1520,"India","Ranked",51,97);
 
-    Player p4(111, "Player4", 1480, "India", "Ranked", 45, 90);
-    Player p5(121, "Player5", 1500, "India", "Ranked", 49, 93);
-    Player p6(106, "Player6", 1300, "India", "Ranked", 55, 89);
+    Player player4(104,"Player4",1515,"India","Ranked",120,88);
+    Player player5(105,"Player5",1800,"India","Ranked",35,99);
+    
+    amish.setWaitingTime(20);
 
     AVLTree skillTree;
 
-    skillTree.insert(p1);
-    skillTree.insert(p2);
-    skillTree.insert(p3);
-    skillTree.insert(p4);
-    skillTree.insert(p5);
-    skillTree.insert(p6);
-
+    skillTree.insert(amish);
+    skillTree.insert(gurveer);
+    skillTree.insert(riya);
+    skillTree.insert(player4);
+    skillTree.insert(player5);
     skillTree.displayInorder();
+    MatchmakingEngine matchmaking;
 
-    std::cout << "\nSearching for player near skill 1520...\n";
+    Player matchedPlayer;
 
-    Player* result = skillTree.findClosestPlayer(2000,50);
+    bool found = matchmaking.findMatch(amish,skillTree,matchedPlayer);
 
-    if (result != nullptr)
+    if (found)
     {
-        result->display();
+        std::cout << "\n===== MATCH FOUND ========\n";
+
+        std::cout
+            << amish.getName()
+            << "matched with "
+            << matchedPlayer.getName()
+            <<'\n';
+        std::cout << "==================================\n";
+
     }
     else
     {
-        std::cout << "No suitable player found.\n";
+        std::cout   
+            <<"\n No suitable match found.\n";
     }
     return 0;
 }

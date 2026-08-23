@@ -2,6 +2,7 @@
 #define AVLTREE_H
 
 #include "Player.h"
+#include<vector>
 
 class AVLTree
 {
@@ -31,6 +32,7 @@ class AVLTree
         Node* insertNode(Node* node,const Player& player);
         void inorderTraversal(Node* node) const;
         void destroyTree(Node* node);
+        void collectRange(Node* node,int minSkill,int maxSkill,std::vector<Player>& candidates) const;
 
         Node* searchSkillRange(Node* node,int targetSkill,int tolerance) const;
     public:
@@ -39,6 +41,7 @@ class AVLTree
         void insert(const Player& player);
         void displayInorder() const;
         Player* findClosestPlayer(int targetSkill,int tolerance) const;    
+        void getPlayersInRange(int minSkill,int maxSkill,std::vector<Player>& candidates) const;
 };
 
 #endif
