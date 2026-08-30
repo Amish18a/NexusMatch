@@ -1,3 +1,6 @@
+// g++ src/main.cpp src/Player.cpp src/Queue.cpp src/AVLTree.cpp src/HashTable.cpp src/MatchmakingEngine.cpp src/Match.cpp src/PriorityQueue.cpp -o nexusmatch
+
+
 #include <iostream>
 #include <vector>
 
@@ -16,7 +19,6 @@
 
 bool createMatch(
     PlayerQueue& queue,
-    PriorityQueue& priorityQueue,
     AVLTree& skillTree,
     HashTable& playerTable,
     MatchmakingEngine& matchmaking,
@@ -24,19 +26,48 @@ bool createMatch(
     int matchId
 )
 {
+    // --------------------------------------------------------
+    // STEP 1:
+    // Check whether enough players are waiting.
+    // --------------------------------------------------------
+
     if (queue.getSize() < matchSize)
     {
         std::cout
-            << "\nNot enough players in queue to create a "
+            << "\nNot enough players to create a "
             << matchSize
             << "-player match.\n";
 
         return false;
     }
 
-    // The normal queue maintains arrival order.
-    // The front player becomes the matchmaking anchor.
+
+    // --------------------------------------------------------
+    // STEP 2:
+    // Select the first player in the normal queue
+    // as the matchmaking anchor.
+    // --------------------------------------------------------
+
     Player anchor = queue.getFront();
+
+    std::cout
+        << "\n===== MATCHMAKING STARTED =====\n";
+
+    std::cout
+        << "Anchor Player: "
+        << anchor.getName()
+        << "\n";
+
+    std::cout
+        << "Anchor Skill: "
+        << anchor.getSkill()
+        << "\n";
+
+
+    // --------------------------------------------------------
+    // STEP 3:
+    // Search the AVL Tree for skill-compatible players.
+    // --------------------------------------------------------
 
     std::vector<Player> matchedPlayers;
 
@@ -48,67 +79,71 @@ bool createMatch(
             matchedPlayers
         );
 
+
+    // --------------------------------------------------------
+    // STEP 4:
+    // If no suitable group is found, stop.
+    // --------------------------------------------------------
+
     if (!success)
     {
         std::cout
-            << "\nNo suitable "
-            << matchSize
-            << "-player match found.\n";
+            << "\nNo suitable match found.\n";
 
         return false;
     }
 
+
     // --------------------------------------------------------
-    // Create Match
+    // STEP 5:
+    // Create the Match object.
     // --------------------------------------------------------
 
-    Match match(matchId, matchSize);
+    Match match(
+        matchId,
+        matchSize
+    );
+
+
+    // --------------------------------------------------------
+    // STEP 6:
+    // Add selected players to the match.
+    // --------------------------------------------------------
 
     for (const Player& player : matchedPlayers)
     {
         match.addPlayer(player);
     }
 
+
     // --------------------------------------------------------
-    // Remove matched players from all data structures
+    // STEP 7:
+    // Remove matched players from the waiting system.
     // --------------------------------------------------------
 
     for (const Player& player : matchedPlayers)
     {
-        // Normal Queue
+        // Remove from normal matchmaking queue
         queue.removePlayer(
             player.getId()
         );
 
-        // Priority Queue
-        //
-        // Phase 1 priority queue is currently a waiting-priority
-        // structure. We don't have player-ID removal implemented
-        // in it yet, so its integration is demonstrated separately.
-        //
-        // Do NOT dequeue here because the highest-priority player
-        // is not necessarily the matched player.
-
-        // AVL Tree
+        // Remove from AVL Tree
         skillTree.remove(player);
 
-        // Hash Table
+        // Remove from Hash Table
         playerTable.remove(
             player.getId()
         );
     }
 
-    // --------------------------------------------------------
-    // Display Match
-    // --------------------------------------------------------
 
-    std::cout
-        << "\n\n===== MATCH CREATED =====\n";
+    // --------------------------------------------------------
+    // STEP 8:
+    // Display the final match.
+    // --------------------------------------------------------
 
     match.display();
-
-    std::cout
-        << "=========================\n";
 
     return true;
 }
@@ -121,7 +156,7 @@ bool createMatch(
 int main()
 {
     // ========================================================
-    // 1. CREATE PLAYERS
+    // STEP 1 — CREATE PLAYERS
     // ========================================================
 
     Player amish(
@@ -176,7 +211,7 @@ int main()
 
 
     // ========================================================
-    // 2. CREATE DATA STRUCTURES
+    // STEP 2 — CREATE DATA STRUCTURES
     // ========================================================
 
     PlayerQueue queue(10);
@@ -191,21 +226,21 @@ int main()
 
 
     // ========================================================
-    // 3. PLAYER REGISTRATION
+    // STEP 3 — PLAYER REGISTRATION
     // ========================================================
 
     std::cout
-        << "\n\n============================================\n";
+        << "\n============================================\n";
 
     std::cout
-        << "        NEXUSMATCH - PLAYER REGISTRATION\n";
+        << "        NEXUSMATCH PLAYER REGISTRATION\n";
 
     std::cout
         << "============================================\n";
 
 
     // --------------------------------------------------------
-    // Queue
+    // NORMAL QUEUE
     // --------------------------------------------------------
 
     queue.enqueue(amish);
@@ -216,7 +251,8 @@ int main()
 
 
     // --------------------------------------------------------
-    // Hash Table
+    // HASH TABLE
+    // Used for fast player-ID lookup.
     // --------------------------------------------------------
 
     playerTable.insert(amish);
@@ -227,7 +263,8 @@ int main()
 
 
     // --------------------------------------------------------
-    // AVL Tree
+    // AVL TREE
+    // Used for skill-based searching.
     // --------------------------------------------------------
 
     skillTree.insert(amish);
@@ -237,12 +274,29 @@ int main()
     skillTree.insert(player5);
 
 
-    // --------------------------------------------------------
-    // Priority Queue
-    //
-    // Waiting priority is simulated for Phase 1.
-    // Larger value = longer waiting time / higher priority.
-    // --------------------------------------------------------
+    // ========================================================
+    // STEP 4 — PRIORITY QUEUE
+    // ========================================================
+
+    /*
+        IMPORTANT:
+
+        Priority Queue is NOT another copy of the normal queue.
+
+        Normal Queue:
+        -----------------------------
+        Maintains arrival order.
+
+        Priority Queue:
+        -----------------------------
+        Gives priority to players who
+        have waited longer.
+
+        For Phase 1, waiting priority
+        is simulated using integer values.
+
+        Higher value = higher priority.
+    */
 
     priorityQueue.enqueue(
         amish,
@@ -271,118 +325,88 @@ int main()
 
 
     // ========================================================
-    // 4. DISPLAY INITIAL SYSTEM STATE
-    // ========================================================
-
-    std::cout
-        << "\n\n===== INITIAL SYSTEM STATE =====\n";
-
-
-    // --------------------------------------------------------
-    // Queue
-    // --------------------------------------------------------
-
-    queue.display();
-
-
-    // --------------------------------------------------------
-    // Priority Queue
-    // --------------------------------------------------------
-
-    priorityQueue.display();
-
-
-    // --------------------------------------------------------
-    // Hash Table
-    // --------------------------------------------------------
-
-    std::cout
-        << "\n===== HASH TABLE =====\n";
-
-    playerTable.display();
-
-
-    // --------------------------------------------------------
-    // AVL Tree
-    // --------------------------------------------------------
-
-    skillTree.displayInorder();
-
-
-    // ========================================================
-    // 5. TEST HASH TABLE SEARCH
-    // ========================================================
-
-    std::cout
-        << "\n\n===== HASH TABLE SEARCH TEST =====\n";
-
-    Player* foundPlayer =
-        playerTable.search(103);
-
-    if (foundPlayer != nullptr)
-    {
-        std::cout
-            << "Player found:\n";
-
-        std::cout
-            << "ID: "
-            << foundPlayer->getId()
-            << "\n";
-
-        std::cout
-            << "Name: "
-            << foundPlayer->getName()
-            << "\n";
-
-        std::cout
-            << "Skill: "
-            << foundPlayer->getSkill()
-            << "\n";
-    }
-    else
-    {
-        std::cout
-            << "Player not found.\n";
-    }
-
-
-    // ========================================================
-    // 6. TEST PRIORITY QUEUE
-    // ========================================================
-
-    std::cout
-        << "\n\n===== PRIORITY QUEUE TEST =====\n";
-
-    Player highestPriority =
-        priorityQueue.getHighestPriority();
-
-    std::cout
-        << "Highest waiting priority: "
-        << highestPriority.getName()
-        << "\n";
-
-    std::cout
-        << "Priority: "
-        << "40"
-        << "\n";
-
-
-    // ========================================================
-    // 7. BASIC MATCHMAKING
+    // STEP 5 — DISPLAY SYSTEM STATE
     // ========================================================
 
     std::cout
         << "\n\n============================================\n";
 
     std::cout
-        << "          NEXUSMATCH MATCHMAKING\n";
+        << "             CURRENT WAITING PLAYERS\n";
 
     std::cout
         << "============================================\n";
 
+
+    std::cout
+        << "\n--- NORMAL QUEUE ---\n";
+
+    queue.display();
+
+
+    std::cout
+        << "\n--- PRIORITY QUEUE ---\n";
+
+    priorityQueue.display();
+
+
+    std::cout
+        << "\n--- AVL TREE ---\n";
+
+    skillTree.displayInorder();
+
+
+    // ========================================================
+    // STEP 6 — SHOW PRIORITY DECISION
+    // ========================================================
+
+    /*
+        The Priority Queue tells us which player
+        has the highest waiting priority.
+
+        It does NOT directly choose the whole match.
+
+        The AVL Tree is still responsible for
+        finding skill-compatible candidates.
+    */
+
+    Player highestPriority =
+        priorityQueue.getHighestPriority();
+
+
+    std::cout
+        << "\n\n===== MATCHMAKING PRIORITY =====\n";
+
+    std::cout
+        << "Player with highest waiting priority: "
+        << highestPriority.getName()
+        << "\n";
+
+
+    // ========================================================
+    // STEP 7 — BASIC MATCHMAKING
+    // ========================================================
+
+    /*
+        For the current Phase 1 prototype:
+
+        Queue
+          ↓
+        Select anchor
+          ↓
+        AVL Tree
+          ↓
+        Skill-compatible candidates
+          ↓
+        Matchmaking Engine
+          ↓
+        Compatibility score
+          ↓
+        Match
+    */
+
     createMatch(
         queue,
-        priorityQueue,
         skillTree,
         playerTable,
         matchmaking,
@@ -392,65 +416,79 @@ int main()
 
 
     // ========================================================
-    // 8. DISPLAY FINAL SYSTEM STATE
+    // STEP 8 — DISPLAY REMAINING SYSTEM
     // ========================================================
 
     std::cout
         << "\n\n============================================\n";
 
     std::cout
-        << "        SYSTEM STATE AFTER MATCH\n";
+        << "         SYSTEM AFTER MATCH CREATION\n";
 
     std::cout
         << "============================================\n";
 
 
     // --------------------------------------------------------
-    // Queue
+    // NORMAL QUEUE
     // --------------------------------------------------------
+
+    std::cout
+        << "\n--- NORMAL QUEUE ---\n";
 
     queue.display();
 
 
     // --------------------------------------------------------
-    // AVL Tree
+    // AVL TREE
     // --------------------------------------------------------
+
+    std::cout
+        << "\n--- AVL TREE ---\n";
 
     skillTree.displayInorder();
 
 
     // --------------------------------------------------------
-    // Hash Table
+    // HASH TABLE
     // --------------------------------------------------------
 
     std::cout
-        << "\n===== HASH TABLE AFTER MATCH =====\n";
+        << "\n--- HASH TABLE ---\n";
 
     playerTable.display();
 
 
-    // --------------------------------------------------------
-    // Priority Queue
-    // --------------------------------------------------------
-
-    std::cout
-        << "\n===== PRIORITY QUEUE =====\n";
-
-    priorityQueue.display();
-
-
     // ========================================================
-    // 9. FINAL MESSAGE
+    // STEP 9 — FINAL EXPLANATION
     // ========================================================
 
     std::cout
         << "\n\n============================================\n";
 
     std::cout
-        << "       PHASE 1 CORE DEMONSTRATION DONE\n";
+        << "             PHASE 1 COMPLETE\n";
 
     std::cout
         << "============================================\n";
+
+    std::cout
+        << "\nQueue       -> manages waiting order\n";
+
+    std::cout
+        << "Priority Q  -> manages waiting priority\n";
+
+    std::cout
+        << "Hash Table  -> fast player ID lookup\n";
+
+    std::cout
+        << "AVL Tree    -> skill-based candidate search\n";
+
+    std::cout
+        << "Matchmaking -> compatibility calculation\n";
+
+    std::cout
+        << "Match       -> stores final matched players\n";
 
 
     return 0;
