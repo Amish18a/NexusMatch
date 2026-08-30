@@ -1,19 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 
-
-# ============================================================
-# NEXUSMATCH
-# Intelligent Multiplayer Matchmaking System
-# Phase 1 - GUI Step 2
-# Server Dashboard + Player Monitoring
-# ============================================================
-
-
-# ------------------------------------------------------------
-# COLORS
-# ------------------------------------------------------------
-
+#Colours..
 BG_COLOR = "#101820"
 CARD_COLOR = "#1b2633"
 ACCENT_COLOR = "#00bcd4"
@@ -22,63 +10,32 @@ YELLOW_COLOR = "#f1c40f"
 TEXT_COLOR = "#ffffff"
 MUTED_COLOR = "#9aa7b2"
 
-
-# ------------------------------------------------------------
-# MANUAL PLAYER DATA
-# ------------------------------------------------------------
+#Manual Player Data for Phase 1 only..
 
 players = [
 
     {
-        "id": 101,
-        "name": "Amish",
-        "skill": 1520,
-        "region": "India",
-        "mode": "Ranked",
-        "status": "In Queue"
+        "id": 101,"name": "Amish","skill": 1520,"region": "India","mode": "Ranked","status": "In Queue"
     },
 
     {
-        "id": 102,
-        "name": "Gurveer",
-        "skill": 1490,
-        "region": "India",
-        "mode": "Ranked",
-        "status": "In Queue"
+        "id": 102,"name": "Gurveer","skill": 1490,"region": "India","mode": "Ranked","status": "In Queue"
     },
 
     {
-        "id": 103,
-        "name": "Riya",
-        "skill": 1520,
-        "region": "India",
-        "mode": "Ranked",
-        "status": "In Queue"
+        "id": 103,"name": "Riya","skill": 1520,"region": "India","mode": "Ranked","status": "In Queue"
     },
 
     {
-        "id": 104,
-        "name": "Player4",
-        "skill": 1515,
-        "region": "India",
-        "mode": "Ranked",
-        "status": "In Queue"
+        "id": 104,"name": "Player4","skill": 1515,"region": "India","mode": "Ranked","status": "In Queue"
     },
 
     {
-        "id": 105,
-        "name": "Player5",
-        "skill": 1800,
-        "region": "India",
-        "mode": "Ranked",
-        "status": "Waiting"
+        "id": 105,"name": "Player5","skill": 1800,"region": "India","mode": "Ranked","status": "Waiting"
     }
 ]
 
-
-# ------------------------------------------------------------
 # MAIN WINDOW
-# ------------------------------------------------------------
 
 root = tk.Tk()
 
@@ -90,10 +47,7 @@ root.configure(bg=BG_COLOR)
 
 root.resizable(False, False)
 
-
-# ------------------------------------------------------------
 # TITLE
-# ------------------------------------------------------------
 
 title = tk.Label(
     root,
@@ -101,25 +55,17 @@ title = tk.Label(
     font=("Arial", 28, "bold"),
     fg=TEXT_COLOR,
     bg=BG_COLOR
-)
-
-title.pack(pady=(20, 3))
-
+).pack(pady=(20, 3))
 
 subtitle = tk.Label(
     root,
     text="Intelligent Multiplayer Matchmaking Server",
-    font=("Arial", 11),
+    font=("Arial", 11,),
     fg=MUTED_COLOR,
     bg=BG_COLOR
-)
+).pack()
 
-subtitle.pack()
-
-
-# ------------------------------------------------------------
 # SERVER STATUS
-# ------------------------------------------------------------
 
 status_frame = tk.Frame(
     root,
@@ -149,7 +95,6 @@ status_indicator.pack(
     padx=(20, 8)
 )
 
-
 status_text = tk.Label(
     status_frame,
     text="SERVER ONLINE",
@@ -161,7 +106,6 @@ status_text = tk.Label(
 status_text.pack(
     side="left"
 )
-
 
 server_info = tk.Label(
     status_frame,
@@ -176,10 +120,7 @@ server_info.pack(
     padx=20
 )
 
-
-# ------------------------------------------------------------
 # STATISTICS
-# ------------------------------------------------------------
 
 stats_frame = tk.Frame(
     root,
