@@ -86,15 +86,127 @@ def detect_delimiter(sample_text: str) -> str:
     return ","
 
 
+def read_match_csv_tolerant(path: Path) -> pd.DataFrame:
+    """
+    Read match.csv defensively.
+
+    The published Dota 2 match table is a simple scalar table (historically
+    50,000 matches and 13 columns). The local download currently contains
+    malformed quote characters on some rows, so a strict CSV parser is not
+    appropriate. We recover rows using the header width and comma separation,
+    while recording any unrecoverable rows.
+    """
+    encodings = ("utf-8-sig", "utf-8", "cp1252", "latin-1")
+    last_error: Exception | None = None
+
+    for encoding in encodings:
+        try:
+            text = path.read_text(encoding=encoding, errors="strict")
+            lines = text.splitlines()
+
+            header_index = None
+            header = None
+
+            for index, line in enumerate(lines[:50]):
+                candidate = [
+                    part.strip().strip('"').strip("'")
+                    for part in line.replace("\ufeff", "").split(",")
+                ]
+                if "match_id" in candidate and "radiant_win" in candidate:
+                    header_index = index
+                    header = candidate
+                    break
+
+            if header_index is None or header is None:
+                raise ValueError(
+                    f"Could not locate a match.csv header in {path.name}"
+                )
+
+            expected_columns = len(header)
+            rows = []
+            bad_rows = []
+
+            for line_number, line in enumerate(
+                lines[header_index + 1 :], start=header_index + 2
+            ):
+                if not line.strip():
+                    continue
+
+                # First try the normal CSV reader. strict=False allows the
+                # parser to recover some quote irregularities.
+                try:
+                    parsed = next(
+                        csv.reader(
+                            [line],
+                            delimiter=",",
+                            quotechar='"',
+                            strict=False,
+                        )
+                    )
+                except (csv.Error, StopIteration):
+                    parsed = []
+
+                parsed = [str(value).strip().strip('"') for value in parsed]
+
+                # Fallback: match.csv has no free-text fields, so stripping
+                # quote characters and splitting on commas is safe here.
+                if len(parsed) != expected_columns:
+                    parsed = [
+                        part.strip().strip('"').strip("'")
+                        for part in line.split(",")
+                    ]
+
+                if len(parsed) == expected_columns:
+                    rows.append(parsed)
+                else:
+                    bad_rows.append(
+                        {
+                            "line_number": line_number,
+                            "field_count": len(parsed),
+                            "raw_line": line,
+                        }
+                    )
+
+            frame = pd.DataFrame(rows, columns=header)
+
+            bad_path = PROCESSED_DIR / "match_bad_rows.csv"
+            if bad_rows:
+                PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+                pd.DataFrame(bad_rows).to_csv(
+                    bad_path, index=False, encoding="utf-8"
+                )
+
+            print(
+                f"  Read {path.name}: encoding={encoding}, "
+                f"rows={len(frame):,}, columns={len(frame.columns)}, "
+                f"skipped_malformed_rows={len(bad_rows):,}"
+            )
+
+            if bad_rows:
+                print(f"  Malformed match rows were saved to: {bad_path}")
+
+            return frame
+
+        except (UnicodeDecodeError, OSError, ValueError) as exc:
+            last_error = exc
+
+    raise RuntimeError(
+        f"Could not recover {path.name} using the tolerant match parser. "
+        f"Last error: {last_error}"
+    )
+
+
 def read_csv_with_encoding(path: Path) -> pd.DataFrame:
     """
     Read a Dota CSV with encoding/quoting fallbacks.
 
-    The match.csv file in this dataset can contain quote formatting that
-    makes the strict Python CSV parser reject an otherwise usable row.
-    Because match.csv contains only simple scalar fields, QUOTE_NONE is a
-    safe fallback for that file. Other files retain normal CSV quoting.
+    match.csv is handled by a dedicated tolerant reader because the local
+    downloaded copy contains malformed quote characters. The other selected
+    files retain ordinary CSV parsing with common encoding fallbacks.
     """
+    if path.name.lower() == "match.csv":
+        return read_match_csv_tolerant(path)
+
     encodings = ("utf-8-sig", "utf-8", "cp1252", "latin-1")
     last_error: Exception | None = None
 
@@ -107,49 +219,12 @@ def read_csv_with_encoding(path: Path) -> pd.DataFrame:
 
             delimiter = detect_delimiter(sample)
 
-            try:
-                frame = pd.read_csv(
-                    path,
-                    encoding=encoding,
-                    sep=delimiter,
-                    engine="python",
-                )
-            except pd.errors.ParserError:
-                if path.name.lower() != "match.csv":
-                    raise
-
-                # match.csv has no free-text columns, so treating quotes as
-                # ordinary characters is safe and prevents malformed quote
-                # characters from breaking parsing.
-                frame = pd.read_csv(
-                    path,
-                    encoding=encoding,
-                    sep=",",
-                    engine="python",
-                    quoting=csv.QUOTE_NONE,
-                    on_bad_lines="error",
-                )
-
-                # Clean accidental quote characters left by QUOTE_NONE.
-                frame.columns = [
-                    str(column).strip().strip('"')
-                    for column in frame.columns
-                ]
-
-                for column in frame.columns:
-                    if frame[column].dtype == "object":
-                        frame[column] = (
-                            frame[column]
-                            .astype(str)
-                            .str.strip()
-                            .str.strip('"')
-                        )
-
-                delimiter = ","
-                print(
-                    f"  Fallback parser used for {path.name}: "
-                    f"QUOTE_NONE with comma delimiter"
-                )
+            frame = pd.read_csv(
+                path,
+                encoding=encoding,
+                sep=delimiter,
+                engine="python",
+            )
 
             print(
                 f"  Read {path.name}: encoding={encoding}, "
@@ -162,6 +237,7 @@ def read_csv_with_encoding(path: Path) -> pd.DataFrame:
             UnicodeDecodeError,
             pd.errors.ParserError,
             csv.Error,
+            ValueError,
         ) as exc:
             last_error = exc
 
