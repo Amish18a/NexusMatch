@@ -13,3 +13,7 @@ bin/
 #OS files
 .DS_Store
 Thumbs.db
+
+#Downloaded / generated Dota 2 data
+Phase2/TrustSystem/data/dota2_raw/
+Phase2/TrustSystem/data/dota2_processed/
