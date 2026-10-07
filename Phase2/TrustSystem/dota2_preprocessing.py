@@ -21,6 +21,7 @@ Outputs:
 
 from __future__ import annotations
 
+import csv
 from pathlib import Path
 import re
 
@@ -73,32 +74,59 @@ def download_selected_files() -> dict[str, Path]:
     return paths
 
 
+def detect_delimiter(sample_text: str) -> str:
+    """
+    Detect the delimiter used by a downloaded CSV.
+
+    The Kaggle files are normally comma-separated, but the loader is made
+    tolerant of alternate separators so that one unexpected file variant does
+    not stop the complete preprocessing pipeline.
+    """
+    try:
+        dialect = csv.Sniffer().sniff(sample_text, delimiters=",;\t|")
+        return dialect.delimiter
+    except csv.Error:
+        return ","
+
+
 def read_csv_with_encoding(path: Path) -> pd.DataFrame:
     """
-    Read a CSV using a small, explicit encoding fallback list.
+    Read a CSV using an encoding and delimiter fallback strategy.
 
-    The downloaded Dota 2 CSVs can contain byte values that are not valid UTF-8
-    (for example 0xE9 in text fields). We first try UTF-8, then Windows-1252,
-    then Latin-1. The first successful decoding is reported to the user.
+    The source data can contain non-UTF-8 bytes and some CSV readers can be
+    sensitive to malformed quoting. We first try common encodings and detect
+    the delimiter from the first part of the file.
     """
     encodings = ("utf-8-sig", "utf-8", "cp1252", "latin-1")
-    last_error: UnicodeDecodeError | None = None
+    last_error: Exception | None = None
 
     for encoding in encodings:
         try:
-            frame = pd.read_csv(path, encoding=encoding, low_memory=False)
-            print(f"  Read {path.name} using encoding: {encoding}")
+            with path.open("r", encoding=encoding, errors="strict", newline="") as file:
+                sample = file.read(20000)
+
+            delimiter = detect_delimiter(sample)
+
+            frame = pd.read_csv(
+                path,
+                encoding=encoding,
+                sep=delimiter,
+                engine="python",
+                low_memory=False,
+            )
+
+            print(
+                f"  Read {path.name}: encoding={encoding}, "
+                f"delimiter={repr(delimiter)}, rows={len(frame):,}, columns={len(frame.columns)}"
+            )
             return frame
-        except UnicodeDecodeError as exc:
+
+        except (UnicodeDecodeError, pd.errors.ParserError, csv.Error) as exc:
             last_error = exc
 
-    raise UnicodeDecodeError(
-        "csv",
-        b"",
-        0,
-        1,
-        f"Could not decode {path.name} using: {', '.join(encodings)}"
-        + (f". Last error: {last_error}" if last_error else ""),
+    raise RuntimeError(
+        f"Could not parse {path.name} with the supported encodings/delimiters. "
+        f"Last error: {last_error}"
     )
 
 
@@ -111,7 +139,7 @@ def load_selected_files(paths: dict[str, Path]) -> dict[str, pd.DataFrame]:
         "chat": read_csv_with_encoding(paths["chat.csv"]),
     }
 
-    print("Loaded datasets:")
+    print("\nLoaded datasets:")
     for name, frame in frames.items():
         print(f"  {name:<12} rows={len(frame):>9,}  columns={len(frame.columns):>3}")
 
@@ -138,6 +166,7 @@ def preprocess_match(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
 
     df = df.drop_duplicates(subset=["match_id"] if "match_id" in df.columns else None)
+
     numeric_columns(
         df,
         [
@@ -249,6 +278,7 @@ def preprocess_player_time(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
 
     numeric_columns(df, ["match_id", "times"])
+
     time_columns = [
         column
         for column in df.columns
@@ -300,6 +330,7 @@ def build_final_player_time_snapshot(player_time: pd.DataFrame) -> pd.DataFrame:
     )
 
     snapshots = []
+
     for slot in PLAYER_SLOTS:
         gold_col = f"gold_t_{slot}"
         lh_col = f"lh_t_{slot}"
