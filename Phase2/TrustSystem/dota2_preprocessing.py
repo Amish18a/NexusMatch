@@ -78,9 +78,8 @@ def detect_delimiter(sample_text: str) -> str:
     """
     Detect the delimiter used by a downloaded CSV.
 
-    The Kaggle files are normally comma-separated, but the loader is made
-    tolerant of alternate separators so that one unexpected file variant does
-    not stop the complete preprocessing pipeline.
+    The Kaggle files are normally comma-separated, but the loader also checks
+    common alternative separators.
     """
     try:
         dialect = csv.Sniffer().sniff(sample_text, delimiters=",;\t|")
@@ -93,16 +92,17 @@ def read_csv_with_encoding(path: Path) -> pd.DataFrame:
     """
     Read a CSV using an encoding and delimiter fallback strategy.
 
-    The source data can contain non-UTF-8 bytes and some CSV readers can be
-    sensitive to malformed quoting. We first try common encodings and detect
-    the delimiter from the first part of the file.
+    The source data can contain non-UTF-8 bytes. Python's CSV engine is used
+    because it is more tolerant of irregular quoting than the C engine.
     """
     encodings = ("utf-8-sig", "utf-8", "cp1252", "latin-1")
     last_error: Exception | None = None
 
     for encoding in encodings:
         try:
-            with path.open("r", encoding=encoding, errors="strict", newline="") as file:
+            with path.open(
+                "r", encoding=encoding, errors="strict", newline=""
+            ) as file:
                 sample = file.read(20000)
 
             delimiter = detect_delimiter(sample)
@@ -112,12 +112,12 @@ def read_csv_with_encoding(path: Path) -> pd.DataFrame:
                 encoding=encoding,
                 sep=delimiter,
                 engine="python",
-                low_memory=False,
             )
 
             print(
                 f"  Read {path.name}: encoding={encoding}, "
-                f"delimiter={repr(delimiter)}, rows={len(frame):,}, columns={len(frame.columns)}"
+                f"delimiter={repr(delimiter)}, rows={len(frame):,}, "
+                f"columns={len(frame.columns)}"
             )
             return frame
 
@@ -141,7 +141,10 @@ def load_selected_files(paths: dict[str, Path]) -> dict[str, pd.DataFrame]:
 
     print("\nLoaded datasets:")
     for name, frame in frames.items():
-        print(f"  {name:<12} rows={len(frame):>9,}  columns={len(frame.columns):>3}")
+        print(
+            f"  {name:<12} rows={len(frame):>9,}  "
+            f"columns={len(frame.columns):>3}"
+        )
 
     return frames
 
@@ -165,7 +168,9 @@ def preprocess_match(df: pd.DataFrame) -> pd.DataFrame:
     """Clean match-level records."""
     df = df.copy()
 
-    df = df.drop_duplicates(subset=["match_id"] if "match_id" in df.columns else None)
+    df = df.drop_duplicates(
+        subset=["match_id"] if "match_id" in df.columns else None
+    )
 
     numeric_columns(
         df,
@@ -266,6 +271,7 @@ def preprocess_players(df: pd.DataFrame) -> pd.DataFrame:
         "hero_healing",
         "tower_damage",
     ]
+
     for column in performance_cols:
         if column in df.columns:
             df[column] = df[column].fillna(df[column].median())
@@ -320,7 +326,9 @@ def preprocess_chat(df: pd.DataFrame) -> pd.DataFrame:
     return df.reset_index(drop=True)
 
 
-def build_final_player_time_snapshot(player_time: pd.DataFrame) -> pd.DataFrame:
+def build_final_player_time_snapshot(
+    player_time: pd.DataFrame,
+) -> pd.DataFrame:
     """Convert the latest match snapshot from wide format to player format."""
     latest = (
         player_time.sort_values(["match_id", "times"])
@@ -336,11 +344,16 @@ def build_final_player_time_snapshot(player_time: pd.DataFrame) -> pd.DataFrame:
         lh_col = f"lh_t_{slot}"
         xp_col = f"xp_t_{slot}"
 
-        available = [c for c in (gold_col, lh_col, xp_col) if c in latest.columns]
+        available = [
+            c for c in (gold_col, lh_col, xp_col)
+            if c in latest.columns
+        ]
+
         if len(available) != 3:
             continue
 
         snapshot = latest[["match_id", "times", *available]].copy()
+
         snapshot = snapshot.rename(
             columns={
                 gold_col: "final_gold",
@@ -348,6 +361,7 @@ def build_final_player_time_snapshot(player_time: pd.DataFrame) -> pd.DataFrame:
                 xp_col: "final_xp",
             }
         )
+
         snapshot["player_slot"] = slot
         snapshots.append(snapshot)
 
@@ -383,6 +397,7 @@ def build_chat_features(chat: pd.DataFrame) -> pd.DataFrame:
 
     features["chat_active"] = features["chat_message_count"].gt(0).astype(int)
     features = features.rename(columns={"slot": "player_slot"})
+
     return features
 
 
@@ -407,9 +422,15 @@ def build_player_behavior_features(
         ]
         if column in match.columns
     ]
-    player = player.merge(match[match_cols], on="match_id", how="left")
+
+    player = player.merge(
+        match[match_cols],
+        on="match_id",
+        how="left",
+    )
 
     snapshot = build_final_player_time_snapshot(player_time)
+
     player = player.merge(
         snapshot,
         on=["match_id", "player_slot"],
@@ -422,9 +443,15 @@ def build_player_behavior_features(
         .rename("time_sample_count")
         .reset_index()
     )
-    player = player.merge(sample_counts, on="match_id", how="left")
+
+    player = player.merge(
+        sample_counts,
+        on="match_id",
+        how="left",
+    )
 
     chat_features = build_chat_features(chat)
+
     player = player.merge(
         chat_features,
         on=["match_id", "player_slot"],
@@ -454,12 +481,17 @@ def build_player_behavior_features(
     return player
 
 
-def build_reliability_summary(player_behavior: pd.DataFrame) -> pd.DataFrame:
+def build_reliability_summary(
+    player_behavior: pd.DataFrame,
+) -> pd.DataFrame:
     """Aggregate repeated non-anonymous player records into behavioral features."""
     if "account_id" not in player_behavior.columns:
         return pd.DataFrame()
 
-    eligible = player_behavior[player_behavior["account_id"].fillna(0).ne(0)].copy()
+    eligible = player_behavior[
+        player_behavior["account_id"].fillna(0).ne(0)
+    ].copy()
+
     if eligible.empty:
         return pd.DataFrame()
 
@@ -478,9 +510,10 @@ def build_reliability_summary(player_behavior: pd.DataFrame) -> pd.DataFrame:
     )
 
     summary["completion_proxy"] = 1 - summary["leaver_rate"]
+
     summary["reliability_note"] = (
-        "Dota 2 contains leaver/player-behavior signals but does not directly provide "
-        "NexusMatch queue-abandonment or join-attempt logs."
+        "Dota 2 contains leaver/player-behavior signals but does not directly "
+        "provide NexusMatch queue-abandonment or join-attempt logs."
     )
 
     return summary
@@ -507,7 +540,9 @@ def save_outputs(
 
     for filename, frame in outputs.items():
         frame.to_csv(PROCESSED_DIR / filename, index=False)
-        print(f"Saved: {PROCESSED_DIR / filename} ({len(frame):,} rows)")
+        print(
+            f"Saved: {PROCESSED_DIR / filename} ({len(frame):,} rows)"
+        )
 
 
 def main() -> None:
@@ -528,6 +563,7 @@ def main() -> None:
         player_time=player_time,
         chat=chat,
     )
+
     reliability = build_reliability_summary(player_behavior)
 
     save_outputs(
