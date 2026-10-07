@@ -24,6 +24,7 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 import re
+import zipfile
 
 import numpy as np
 import pandas as pd
@@ -44,6 +45,76 @@ DATASET_HANDLE = "devinanzelmo/dota-2-matches"
 SELECTED_FILES = ("match.csv", "players.csv", "player_time.csv", "chat.csv")
 
 PLAYER_SLOTS = (0, 1, 2, 3, 4, 128, 129, 130, 131, 132)
+
+
+def materialize_dataset_file(path: Path) -> Path:
+    """
+    Return a real CSV path.
+
+    KaggleHub can return a ZIP payload even when an individual dataset path is
+    requested. The current downloaded files begin with the ZIP signature
+    PK, so we detect and extract that payload before pandas reads it.
+    """
+    try:
+        with path.open("rb") as file:
+            signature = file.read(4)
+    except OSError:
+        return path
+
+    if signature != b"PK\x03\x04":
+        return path
+
+    extract_dir = path.parent / "_extracted"
+    extract_dir.mkdir(parents=True, exist_ok=True)
+
+    expected_name = path.name
+    target = extract_dir / expected_name
+
+    if target.exists():
+        return target
+
+    try:
+        with zipfile.ZipFile(path, "r") as archive:
+            members = archive.namelist()
+
+            candidates = [
+                member
+                for member in members
+                if Path(member).name.lower() == expected_name.lower()
+            ]
+
+            if not candidates:
+                stem = Path(expected_name).stem.lower()
+                candidates = [
+                    member
+                    for member in members
+                    if Path(member).suffix.lower() == ".csv"
+                    and Path(member).stem.lower() == stem
+                ]
+
+            if not candidates:
+                raise RuntimeError(
+                    f"ZIP archive {path.name} does not contain {expected_name}."
+                )
+
+            member = candidates[0]
+            extracted = Path(archive.extract(member, extract_dir))
+
+            if extracted.resolve() != target.resolve():
+                if target.exists():
+                    target.unlink()
+                extracted.replace(target)
+
+            print(
+                f"  Extracted {path.name} -> {target.name} "
+                f"from archive member {member}"
+            )
+            return target
+
+    except zipfile.BadZipFile as exc:
+        raise RuntimeError(
+            f"{path.name} begins with a ZIP signature but is not a valid ZIP archive."
+        ) from exc
 
 
 def download_selected_files() -> dict[str, Path]:
@@ -69,7 +140,7 @@ def download_selected_files() -> dict[str, Path]:
                 f"Could not find {filename}. Expected it at {target}."
             )
 
-        paths[filename] = target
+        paths[filename] = materialize_dataset_file(target)
 
     return paths
 
