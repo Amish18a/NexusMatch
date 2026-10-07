@@ -73,13 +73,42 @@ def download_selected_files() -> dict[str, Path]:
     return paths
 
 
+def read_csv_with_encoding(path: Path) -> pd.DataFrame:
+    """
+    Read a CSV using a small, explicit encoding fallback list.
+
+    The downloaded Dota 2 CSVs can contain byte values that are not valid UTF-8
+    (for example 0xE9 in text fields). We first try UTF-8, then Windows-1252,
+    then Latin-1. The first successful decoding is reported to the user.
+    """
+    encodings = ("utf-8-sig", "utf-8", "cp1252", "latin-1")
+    last_error: UnicodeDecodeError | None = None
+
+    for encoding in encodings:
+        try:
+            frame = pd.read_csv(path, encoding=encoding, low_memory=False)
+            print(f"  Read {path.name} using encoding: {encoding}")
+            return frame
+        except UnicodeDecodeError as exc:
+            last_error = exc
+
+    raise UnicodeDecodeError(
+        "csv",
+        b"",
+        0,
+        1,
+        f"Could not decode {path.name} using: {', '.join(encodings)}"
+        + (f". Last error: {last_error}" if last_error else ""),
+    )
+
+
 def load_selected_files(paths: dict[str, Path]) -> dict[str, pd.DataFrame]:
     """Load the four selected CSV files into pandas DataFrames."""
     frames = {
-        "match": pd.read_csv(paths["match.csv"], low_memory=False),
-        "players": pd.read_csv(paths["players.csv"], low_memory=False),
-        "player_time": pd.read_csv(paths["player_time.csv"], low_memory=False),
-        "chat": pd.read_csv(paths["chat.csv"], low_memory=False),
+        "match": read_csv_with_encoding(paths["match.csv"]),
+        "players": read_csv_with_encoding(paths["players.csv"]),
+        "player_time": read_csv_with_encoding(paths["player_time.csv"]),
+        "chat": read_csv_with_encoding(paths["chat.csv"]),
     }
 
     print("Loaded datasets:")
