@@ -75,25 +75,25 @@ def download_selected_files() -> dict[str, Path]:
 
 
 def detect_delimiter(sample_text: str) -> str:
-    """
-    Detect the delimiter used by a downloaded CSV.
-
-    The Kaggle files are normally comma-separated, but the loader also checks
-    common alternative separators.
-    """
+    """Detect common CSV delimiters, with comma as the default."""
     try:
         dialect = csv.Sniffer().sniff(sample_text, delimiters=",;\t|")
-        return dialect.delimiter
+        if dialect.delimiter in {",", ";", "\t", "|"}:
+            return dialect.delimiter
     except csv.Error:
-        return ","
+        pass
+
+    return ","
 
 
 def read_csv_with_encoding(path: Path) -> pd.DataFrame:
     """
-    Read a CSV using an encoding and delimiter fallback strategy.
+    Read a Dota CSV with encoding/quoting fallbacks.
 
-    The source data can contain non-UTF-8 bytes. Python's CSV engine is used
-    because it is more tolerant of irregular quoting than the C engine.
+    The match.csv file in this dataset can contain quote formatting that
+    makes the strict Python CSV parser reject an otherwise usable row.
+    Because match.csv contains only simple scalar fields, QUOTE_NONE is a
+    safe fallback for that file. Other files retain normal CSV quoting.
     """
     encodings = ("utf-8-sig", "utf-8", "cp1252", "latin-1")
     last_error: Exception | None = None
@@ -107,12 +107,49 @@ def read_csv_with_encoding(path: Path) -> pd.DataFrame:
 
             delimiter = detect_delimiter(sample)
 
-            frame = pd.read_csv(
-                path,
-                encoding=encoding,
-                sep=delimiter,
-                engine="python",
-            )
+            try:
+                frame = pd.read_csv(
+                    path,
+                    encoding=encoding,
+                    sep=delimiter,
+                    engine="python",
+                )
+            except pd.errors.ParserError:
+                if path.name.lower() != "match.csv":
+                    raise
+
+                # match.csv has no free-text columns, so treating quotes as
+                # ordinary characters is safe and prevents malformed quote
+                # characters from breaking parsing.
+                frame = pd.read_csv(
+                    path,
+                    encoding=encoding,
+                    sep=",",
+                    engine="python",
+                    quoting=csv.QUOTE_NONE,
+                    on_bad_lines="error",
+                )
+
+                # Clean accidental quote characters left by QUOTE_NONE.
+                frame.columns = [
+                    str(column).strip().strip('"')
+                    for column in frame.columns
+                ]
+
+                for column in frame.columns:
+                    if frame[column].dtype == "object":
+                        frame[column] = (
+                            frame[column]
+                            .astype(str)
+                            .str.strip()
+                            .str.strip('"')
+                        )
+
+                delimiter = ","
+                print(
+                    f"  Fallback parser used for {path.name}: "
+                    f"QUOTE_NONE with comma delimiter"
+                )
 
             print(
                 f"  Read {path.name}: encoding={encoding}, "
@@ -121,7 +158,11 @@ def read_csv_with_encoding(path: Path) -> pd.DataFrame:
             )
             return frame
 
-        except (UnicodeDecodeError, pd.errors.ParserError, csv.Error) as exc:
+        except (
+            UnicodeDecodeError,
+            pd.errors.ParserError,
+            csv.Error,
+        ) as exc:
             last_error = exc
 
     raise RuntimeError(
