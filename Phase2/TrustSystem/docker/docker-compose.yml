@@ -1,0 +1,18 @@
+services:
+  nexusmatch-server:
+    build:
+      context: ../..
+      dockerfile: Phase2/TrustSystem/docker/Dockerfile
+    container_name: nexusmatch-server
+    ports:
+      - "5050:5050"
+    restart: "no"
+
+  player-simulation:
+    build:
+      context: ../..
+      dockerfile: Phase2/TrustSystem/docker/Dockerfile.client
+    container_name: nexusmatch-player-simulation
+    depends_on:
+      - nexusmatch-server
+    restart: "no"
