@@ -1,63 +1,85 @@
-# NexusMatch - ML Trust Baseline
+# NexusMatch - Final Phase 2 Trust ML
 
-This folder contains the first machine-learning baseline for the Dota 2
-behaviour data used by NexusMatch.
+This folder contains the finalized Phase 2 Trust-model pipeline.
 
-## Files
+## Final data design
 
-- `prepare_trust_dataset.py`
-- `train_trust_models.py`
+The final model is trained on controlled synthetic NexusMatch session
+telemetry so that the features and target match the intended deployment use
+case.
 
-## Baseline methodology
+The prepared dataset contains 90,454 examples from 5,000 simulated players.
+Each example uses behavioural history to predict whether at least one of the
+player's next three sessions will be unreliable.
 
-The first experiment keeps players with at least five recorded matches.
+## Final feature vector
 
-The target is:
-
-- `reliable = 1`: no recorded leaver event
-- `reliable = 0`: at least one recorded leaver event
-
-The first model uses:
-
-- `avg_kda`
-- `avg_gold_per_min`
-- `avg_xp_per_min`
-- `avg_chat_messages`
-- `avg_chat_length`
-
-The following fields are deliberately excluded from the feature matrix:
-
-- `leaver_rate` and `completion_proxy`, because they directly encode the target.
-- `matches_played`, because it is part of the denominator used to compute leaver rate.
-- `avg_time_samples`, because a player leaving can directly reduce the observed
-  time samples, which would make it a strong form of post-outcome leakage.
-
-This is a **retrospective baseline experiment**. It is useful for testing the
-feature/model pipeline, but it should not be described as the final
-deployment-time NexusMatch Trust model.
-
-## Run
-
-From `Phase2/TrustSystem`:
-
-```bash
-python ml/prepare_trust_dataset.py
-python ml/train_trust_models.py
-```
-
-Results are written to:
+The model uses 14 features:
 
 ```text
-data/ml/
-├── trust_ml_dataset.csv
-└── results/
-    ├── model_comparison.csv
-    └── random_forest_feature_importance.csv
+history_sessions
+join_success_rate
+queue_abandon_rate
+completion_rate
+disconnect_rate
+reconnect_success_rate
+recent_3_join_success_rate
+recent_3_queue_abandon_rate
+recent_3_completion_rate
+recent_3_disconnect_rate
+recent_3_reconnect_success_rate
+avg_wait_time_sec
+avg_ping_ms
+avg_chat_messages
 ```
 
-## Next research step
+## Model selection
 
-The stronger version of the experiment should use a temporal setup: use
-historical behaviour from previous matches to predict whether the player
-leaves the next match. That removes same-match label leakage and is closer to
-how a real NexusMatch Trust Score would be used before matchmaking.
+Experiments compared behavioural baseline and several supervised models using
+chronological validation. Logistic Regression was selected for the final
+pipeline based on the validation comparison and then calibrated before unseen
+test evaluation.
+
+Validation comparison also included an ablation/trend study. The differences
+between feature variants were small, so the current 14-feature set was frozen
+rather than continuing to chase marginal improvements.
+
+## Final unseen-test metrics
+
+```text
+Accuracy                0.5837
+Balanced Accuracy       0.6141
+Precision (unreliable)  0.4573
+Recall (unreliable)     0.7277
+F1 (unreliable)         0.5617
+ROC-AUC                 0.6918
+Average Precision       0.6098
+Brier Score             0.2023
+```
+
+The model is intended to identify elevated unreliability risk, so recall of
+the unreliable class is an important operating metric.
+
+## Dota 2 experiments
+
+Dota 2 preprocessing, behavioural analysis and NLP experiments are retained as
+research work. Those experiments did not provide sufficiently strong
+deployment-aligned predictive performance, so Dota 2 is not used as the final
+Trust training source.
+
+## Inference
+
+The runtime inference entry point is:
+
+    inference/trust_inference.py
+
+It accepts the 14 features and returns risk, trust, label, and threshold.
+
+The C++ TrustModelBridge invokes this interface and writes the resulting Trust
+Score into the C++ Player object.
+
+## Important limitation
+
+The final model uses synthetic NexusMatch telemetry. Its successful Docker
+demonstration validates the software pipeline and integration, not real-world
+generalization or predictive accuracy.
