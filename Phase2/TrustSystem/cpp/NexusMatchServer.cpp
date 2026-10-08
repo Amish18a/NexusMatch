@@ -12,6 +12,9 @@
 #include <map>
 #include <sstream>
 #include <string>
+#include <thread>
+#include <mutex>
+#include <atomic>
 #include <vector>
 
 #ifdef _WIN32
@@ -48,6 +51,8 @@ struct MatchmakingRuntime
     MatchmakingEngine engine;
     int nextMatchId = 1;
     bool automaticMatchmakingEnabled = false;
+    int lastMatchId = 0;
+    std::vector<int> lastMatchedPlayerIds;
 };
 
 void closeSocket(SocketHandle socket)
@@ -252,8 +257,15 @@ std::string tryAutomaticMatch(
             << "\n";
     }
 
+    matchmaking.lastMatchId = match.getMatchId();
+    matchmaking.lastMatchedPlayerIds.clear();
+
     for (const Player& matchedPlayer : matchedPlayers)
     {
+        matchmaking.lastMatchedPlayerIds.push_back(
+            matchedPlayer.getId()
+        );
+
         auto found = players.find(matchedPlayer.getId());
 
         if (found != players.end())
@@ -354,6 +366,51 @@ std::string processCommand(
     {
         matchmaking.automaticMatchmakingEnabled = true;
         return "OK AUTOMATIC_MATCHMAKING_ENABLED";
+    }
+
+    if (command == "SHOW_ALL")
+    {
+        std::ostringstream response;
+
+        response << "STATUS players=" << players.size()
+                 << " queue=" << matchmaking.queue.getSize()
+                 << " last_match=" << matchmaking.lastMatchId;
+
+        if (!matchmaking.lastMatchedPlayerIds.empty())
+        {
+            response << " matched=";
+
+            for (std::size_t i = 0;
+                 i < matchmaking.lastMatchedPlayerIds.size();
+                 ++i)
+            {
+                if (i > 0)
+                {
+                    response << ",";
+                }
+
+                response
+                    << matchmaking.lastMatchedPlayerIds[i];
+            }
+        }
+
+        for (const auto& entry : players)
+        {
+            const PlayerState& playerState = entry.second;
+
+            response
+                << " | player=" << playerState.player.getId()
+                << ",name=" << playerState.player.getName()
+                << ",skill=" << playerState.player.getSkill()
+                << ",ping=" << playerState.player.getPing()
+                << ",trust=" << playerState.player.getTrustScore()
+                << ",waiting="
+                << (playerState.player.isWaiting() ? "yes" : "no")
+                << ",sessions="
+                << playerState.tracker.sessionCount();
+        }
+
+        return response.str();
     }
 
     int id = 0;
@@ -672,6 +729,75 @@ std::string processCommand(
     return "ERROR unknown command";
 }
 
+void handleClient(
+    SocketHandle client,
+    std::map<int, PlayerState>& players,
+    TrustModelBridge& trustBridge,
+    MatchmakingRuntime& matchmaking,
+    std::mutex& stateMutex,
+    std::atomic<bool>& serverRunning
+)
+{
+    std::cout << "Client connected.\n";
+
+    sendLine(
+        client,
+        "NEXUSMATCH_SERVER_READY"
+    );
+
+    std::string line;
+
+    while (serverRunning && receiveLine(client, line))
+    {
+        if (line == "QUIT")
+        {
+            sendLine(client, "OK CLIENT_DISCONNECTED");
+            break;
+        }
+
+        std::string response;
+
+        {
+            std::lock_guard<std::mutex> lock(stateMutex);
+
+            if (line == "SHUTDOWN")
+            {
+                response = "OK SERVER_SHUTDOWN";
+                serverRunning = false;
+            }
+            else
+            {
+                response = processCommand(
+                    players,
+                    line,
+                    trustBridge,
+                    matchmaking
+                );
+            }
+        }
+
+        std::cout
+            << "[EVENT] "
+            << line
+            << " -> "
+            << response
+            << "\n";
+
+        if (!sendLine(client, response))
+        {
+            break;
+        }
+
+        if (!serverRunning)
+        {
+            break;
+        }
+    }
+
+    closeSocket(client);
+    std::cout << "Client disconnected.\n";
+}
+
 int main(int argc, char* argv[])
 {
     int port = 5050;
@@ -768,12 +894,18 @@ int main(int argc, char* argv[])
 
     std::cout
         << "Waiting for player/client events...\n";
+    std::cout
+        << "Multiple clients and monitoring connections supported.\n";
 
     std::map<int, PlayerState> players;
     TrustModelBridge trustBridge;
     MatchmakingRuntime matchmaking;
 
-    while (true)
+    std::mutex stateMutex;
+    std::atomic<bool> serverRunning{true};
+    std::vector<std::thread> clientThreads;
+
+    while (serverRunning)
     {
         sockaddr_in clientAddress{};
 
@@ -794,60 +926,29 @@ int main(int argc, char* argv[])
 
         if (client == INVALID_SOCKET_HANDLE)
         {
-            std::cerr << "Accept failed.\n";
+            if (serverRunning)
+            {
+                std::cerr << "Accept failed.\n";
+            }
             continue;
         }
 
-        std::cout
-            << "Client connected.\n";
-
-        sendLine(
+        clientThreads.emplace_back(
+            handleClient,
             client,
-            "NEXUSMATCH_SERVER_READY"
+            std::ref(players),
+            std::ref(trustBridge),
+            std::ref(matchmaking),
+            std::ref(stateMutex),
+            std::ref(serverRunning)
         );
+    }
 
-        std::string line;
-
-        while (receiveLine(client, line))
+    for (std::thread& clientThread : clientThreads)
+    {
+        if (clientThread.joinable())
         {
-            if (line == "QUIT")
-            {
-                sendLine(
-                    client,
-                    "OK SERVER_SHUTDOWN"
-                );
-                break;
-            }
-
-            const std::string response =
-                processCommand(
-                    players,
-                    line,
-                    trustBridge,
-                    matchmaking
-                );
-
-            std::cout
-                << "[EVENT] "
-                << line
-                << " -> "
-                << response
-                << "\n";
-
-            if (!sendLine(client, response))
-            {
-                break;
-            }
-        }
-
-        closeSocket(client);
-
-        std::cout
-            << "Client disconnected.\n";
-
-        if (line == "QUIT")
-        {
-            break;
+            clientThread.join();
         }
     }
 
