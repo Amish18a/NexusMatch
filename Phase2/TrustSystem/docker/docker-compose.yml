@@ -13,6 +13,9 @@ services:
       context: ../..
       dockerfile: Phase2/TrustSystem/docker/Dockerfile.client
     container_name: nexusmatch-player-simulation
+    environment:
+      NEXUSMATCH_SERVER_HOST: nexusmatch-server
+      NEXUSMATCH_SERVER_PORT: "5050"
     depends_on:
       - nexusmatch-server
     restart: "no"
