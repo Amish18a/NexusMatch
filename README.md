@@ -6,13 +6,13 @@ NexusMatch is a real-time multiplayer matchmaking system designed to create bala
 
 The system matches players based on factors such as **skill rating, network latency, waiting time, region, game mode, and behavioural trust**.
 
-The core matchmaking engine is developed in **C**, with Python used for the **AI/ML layer, GUI, and visualization**. The system follows a client-server architecture to support real-time player connections. **Docker** is planned as an advanced component for simulating multiple clients and controlled network environments.
+The core matchmaking engine is developed in **C++**, with Python used for the **AI/ML layer and GUI**. The system follows a client-server architecture to support real-time player connections. **Docker Compose** is used to run the C++ matchmaking server and multiple isolated player-client containers.
 
 ---
 
 ## 🚀 Project Objectives
 
-- Develop an efficient multiplayer matchmaking engine using C.
+- Develop an efficient multiplayer matchmaking engine using C++.
 - Apply Data Structures and Algorithms to a real-world problem.
 - Match players based on skill compatibility and network conditions.
 - Reduce excessive matchmaking waiting time using dynamic matching criteria.
@@ -40,18 +40,18 @@ The core matchmaking engine is developed in **C**, with Python used for the **AI
 - 📊 Match compatibility scoring
 - 🌐 Client-server communication
 - 🖥️ Python-based GUI and monitoring
-- 🐳 Docker-based client/server simulation *(advanced extension)*
+- 🐳 Docker-based multi-client/server simulation
 
 ---
 
 ## 🏗️ System Architecture
 
 ```text
-                         PLAYER CLIENTS
+                  INDEPENDENT PLAYER CLIENTS
                                │
                                ▼
                     ┌────────────────────┐
-                    │   MATCHMAKING      │
+                    │   NEXUSMATCH      │
                     │      SERVER        │
                     └─────────┬──────────┘
                               │
@@ -91,3 +91,47 @@ The core matchmaking engine is developed in **C**, with Python used for the **AI
                               │
                               ▼
                            MATCH
+
+
+---
+
+## ▶️ Phase 2 Demo
+
+Phase 2 currently runs as:
+
+```text
+4 independent Docker player containers
+        ↓
+C++ TCP NexusMatch Server
+        ↓
+Behaviour Telemetry
+        ↓
+Python Trust ML Model
+        ↓
+Trust Score
+        ↓
+Queue + Hash Table + AVL Tree
+        ↓
+Automatic Trust-aware Matchmaking
+        ↓
+Original Tkinter Monitoring GUI
+```
+
+Start the server and four player containers:
+
+```powershell
+cd Phase2\TrustSystem
+docker compose -f docker\docker-compose.yml down
+docker compose -f docker\docker-compose.yml up --build -d
+```
+
+Run the monitoring GUI from another terminal:
+
+```powershell
+cd <NexusMatch repository>
+python GUI\main.py
+```
+
+The Docker simulation uses three reliable player profiles and one intentionally
+unreliable profile. The data is a controlled development simulation, not real
+player telemetry.
