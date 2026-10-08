@@ -250,6 +250,13 @@ std::string processCommand(
         return "OK CONNECTED " + std::to_string(id);
     }
 
+    if (command == "SHOW_QUEUE")
+    {
+        matchmaking.queue.display();
+        matchmaking.skillTree.displayInorder();
+        return "OK QUEUE_DISPLAYED";
+    }
+
     int id = 0;
     parser >> id;
 
@@ -546,13 +553,6 @@ std::string processCommand(
                  << (state.player.isWaiting() ? "yes" : "no");
 
         return response.str();
-    }
-
-    if (command == "SHOW_QUEUE")
-    {
-        matchmaking.queue.display();
-        matchmaking.skillTree.displayInorder();
-        return "OK QUEUE_DISPLAYED";
     }
 
     return "ERROR unknown command";
