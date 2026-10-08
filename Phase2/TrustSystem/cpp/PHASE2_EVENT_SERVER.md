@@ -24,7 +24,10 @@ matchmaking when enough compatible players are waiting.
 The server accepts historical session events first. After Trust scores are
 generated, players reconnect and enter the real matchmaking queue.
 
-Automatic matchmaking runs after a successful `QUEUE` event.
+Automatic matchmaking is enabled explicitly with `START_MATCHMAKING`.
+This keeps historical telemetry collection separate from live matchmaking.
+Once enabled, the server checks for a match after each successful `QUEUE`
+event.
 
 When at least three players are waiting, the server:
 
@@ -59,6 +62,7 @@ Player4 remains in the queue.
     DISCONNECT_PLAYER id
     TRUST id
     MATCHMAKE id matchSize
+    START_MATCHMAKING
     SHOW id
     SHOW_QUEUE
     QUIT
