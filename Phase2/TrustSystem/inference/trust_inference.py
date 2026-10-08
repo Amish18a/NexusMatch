@@ -21,6 +21,7 @@ from typing import Mapping
 
 import joblib
 import numpy as np
+import pandas as pd
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -108,9 +109,16 @@ def predict_trust(
     validate_features(features)
     package = load_model(model_path)
     ordered_values = [float(features[f]) for f in package["features"]]
+    # Keep feature names because the saved sklearn pipeline was fitted with
+    # a pandas DataFrame.
+    input_frame = pd.DataFrame(
+        [ordered_values],
+        columns=package["features"],
+    )
+
     probability = float(
         package["model"].predict_proba(
-            np.asarray([ordered_values], dtype=float)
+            input_frame
         )[0, 1]
     )
     probability = float(np.clip(probability, 0.0, 1.0))
