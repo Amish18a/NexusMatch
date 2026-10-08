@@ -1,5 +1,0 @@
-pandas
-numpy
-kagglehub
-scikit-learn
-joblib

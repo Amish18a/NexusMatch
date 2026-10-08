@@ -1,6 +1,0 @@
-player_id,player_name,join_attempts,successful_joins,queue_entries,queue_abandons,matches_started,matches_completed,disconnects
-101,Amish,20,19,18,1,15,14,1
-102,Gurveer,20,18,17,2,14,12,2
-103,Riya,20,20,19,0,16,16,0
-104,Player4,20,17,16,3,13,10,3
-105,Player5,20,15,15,5,12,8,4

@@ -1,19 +1,32 @@
-#compiled C++ files
+# C++ build artifacts
 *.exe
 *.out
 *.o
 
-#VS Code
-.vscode/
-
-#Build Folders
+# Local build directories
 build/
 bin/
 
-#OS files
+# Python cache / virtual environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# IDE / editor files
+.vscode/
+.idea/
+
+# OS files
 .DS_Store
 Thumbs.db
 
-#Downloaded / generated Dota 2 data
-Phase2/TrustSystem/data/dota2_raw/
-Phase2/TrustSystem/data/dota2_processed/
+# Phase 2 generated data
+Phase2/data/dota2_raw/
+Phase2/data/dota2_processed/
+Phase2/data/nexusmatch_simulation/
+Phase2/data/ml/
+
+# Temporary C++ -> Python Trust bridge output
+nexusmatch_trust_inference_output.txt

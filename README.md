@@ -2,136 +2,161 @@
 
 ### AI-Assisted Trust-Aware Multiplayer Matchmaking System
 
-NexusMatch is a real-time multiplayer matchmaking system designed to create balanced and efficient matches using **Data Structures, Algorithms, AI/ML, and network-based player information**.
+NexusMatch is a real-time multiplayer matchmaking prototype that combines **Data Structures and Algorithms, C++, AI/ML, behavioural telemetry, networking, and Docker**.
 
-The system matches players based on factors such as **skill rating, network latency, waiting time, region, game mode, and behavioural trust**.
+The system evaluates players using skill, ping, waiting time, region, game mode, and behavioural Trust. Phase 2 connects the Trust model to the C++ matchmaking engine through a TCP server and a multi-client Docker simulation.
 
-The core matchmaking engine is developed in **C++**, with Python used for the **AI/ML layer and GUI**. The system follows a client-server architecture to support real-time player connections. **Docker Compose** is used to run the C++ matchmaking server and multiple isolated player-client containers.
+> **Current status:** Phase 2 is complete and frozen. Phase 3 is reserved for evaluation, stronger data, team balancing, persistence, and final research/presentation work.
 
----
+## Repository structure
 
-## 🚀 Project Objectives
+~~~text
+NexusMatch/
+├── Phase1/
+│   ├── include/             # DSA and matchmaking headers
+│   ├── src/                 # Phase 1 implementation and demo
+│   └── README.md
+│
+├── Phase2/
+│   ├── cpp/                 # TCP server, telemetry, Trust bridge and demos
+│   ├── inference/           # Runtime Trust prediction
+│   ├── ml/                  # Final Trust pipeline and research experiments
+│   ├── simulation/          # Synthetic NexusMatch telemetry generator
+│   ├── research/            # Dota 2 behavioural/NLP research
+│   ├── docker/              # Dockerfiles and Compose configuration
+│   ├── PHASE2_FINAL.md      # Frozen Phase 2 completion record
+│   └── README.md
+│
+├── GUI/                     # Canonical live Tkinter monitoring dashboard
+├── .gitignore
+├── .dockerignore
+└── README.md
+~~~
 
-- Develop an efficient multiplayer matchmaking engine using C++.
-- Apply Data Structures and Algorithms to a real-world problem.
-- Match players based on skill compatibility and network conditions.
-- Reduce excessive matchmaking waiting time using dynamic matching criteria.
-- Maintain fast player lookup and skill-based candidate searching.
-- Introduce a behavioural trust mechanism using AI/ML.
-- Build a real-time client-server matchmaking environment.
-- Experiment with Docker-based network and client simulation.
-- Evaluate matchmaking quality using measurable performance metrics.
+Generated datasets and experiment outputs are intentionally excluded from Git. The code that creates them remains in the repository.
 
----
+## System architecture
 
-## 🧩 Core Features
+~~~text
+Independent Docker player clients
+             │
+             ▼
+      C++ TCP NexusMatch Server
+             │
+      ┌──────┼─────────┐
+      ▼      ▼         ▼
+   Player  Telemetry  Network
+    Data     │         │
+             ▼         ▼
+       Behaviour     Ping
+        Tracker
+             │
+             ▼
+      14 Trust features
+             │
+             ▼
+     Python Trust inference
+             │
+             ▼
+         Trust Score
+             │
+             ▼
+ Queue + Hash Table + AVL Tree
+             │
+             ▼
+      MatchmakingEngine
+             │
+             ▼
+        Match creation
+             │
+             ▼
+      Tkinter live monitor
+~~~
 
-- 🎮 Multiplayer player registration
-- 📋 Matchmaking waiting queue
-- ⭐ Skill-based player matching
-- ⚡ Real-time ping/latency measurement
-- ⏱️ Automatic waiting-time calculation
-- 🔥 Dynamic matchmaking based on waiting time
-- ⚖️ Team balancing
-- 🔑 Fast player lookup
-- 🌳 AVL-based skill searching
-- 🛡️ Behaviour-based trust scoring
-- 🤖 AI/ML-based suspicious behaviour analysis
-- 📊 Match compatibility scoring
-- 🌐 Client-server communication
-- 🖥️ Python-based GUI and monitoring
-- 🐳 Docker-based multi-client/server simulation
+## Phase 1
 
----
+Phase 1 establishes the C++ matchmaking foundation using Queue, Priority Queue, Hash Table, AVL Tree, MatchmakingEngine, and Match.
 
-## 🏗️ System Architecture
+See Phase1/README.md.
 
-```text
-                  INDEPENDENT PLAYER CLIENTS
-                               │
-                               ▼
-                    ┌────────────────────┐
-                    │   NEXUSMATCH      │
-                    │      SERVER        │
-                    └─────────┬──────────┘
-                              │
-             ┌────────────────┼────────────────┐
-             ▼                ▼                ▼
-          Player Data      Network Data    Behaviour Data
-             │                │                │
-             │                ▼                ▼
-             │               Ping          ML Analysis
-             │                                   │
-             │                                   ▼
-             │                             Trust Score
-             │                                   │
-             └────────────────┬──────────────────┘
-                              ▼
-                   ┌─────────────────────┐
-                   │ MATCHMAKING ENGINE  │
-                   │         C           │
-                   └──────────┬──────────┘
-                              │
-          ┌───────────────────┼───────────────────┐
-          ▼                   ▼                   ▼
-       Queue            Priority Queue        Hash Table
-          │                   │                   │
-          └───────────────────┼───────────────────┘
-                              ▼
-                         AVL Tree
-                              │
-                              ▼
-                    Candidate Selection
-                              │
-                              ▼
-                       Match Scoring
-                              │
-                              ▼
-                       Team Balancing
-                              │
-                              ▼
-                           MATCH
+## Phase 2
 
+Phase 2 adds behavioural telemetry tracking, a 14-feature Trust representation, calibrated Logistic Regression, the C++ → Python inference bridge, a concurrent TCP server, automatic Trust-aware group matchmaking, Docker Compose simulation, and live GUI integration.
 
----
+See Phase2/README.md and Phase2/PHASE2_FINAL.md.
 
-## ▶️ Phase 2 Demo
+## Final Trust model
 
-Phase 2 currently runs as:
+The deployable Phase 2 model is stored at:
 
-```text
-4 independent Docker player containers
-        ↓
-C++ TCP NexusMatch Server
-        ↓
-Behaviour Telemetry
-        ↓
-Python Trust ML Model
-        ↓
-Trust Score
-        ↓
-Queue + Hash Table + AVL Tree
-        ↓
-Automatic Trust-aware Matchmaking
-        ↓
-Original Tkinter Monitoring GUI
-```
+    Phase2/ml/artifacts/final_trust_model.joblib
 
-Start the server and four player containers:
+It is trained on controlled synthetic NexusMatch session data.
 
-```powershell
-cd Phase2\TrustSystem
-docker compose -f docker\docker-compose.yml down
-docker compose -f docker\docker-compose.yml up --build -d
-```
+Final unseen-test metrics:
 
-Run the monitoring GUI from another terminal:
+| Metric | Result |
+|---|---:|
+| Accuracy | 0.5837 |
+| Balanced Accuracy | 0.6141 |
+| Precision (unreliable) | 0.4573 |
+| Recall (unreliable) | 0.7277 |
+| F1 (unreliable) | 0.5617 |
+| ROC-AUC | 0.6918 |
+| Average Precision | 0.6098 |
+| Brier Score | 0.2023 |
 
-```powershell
-cd <NexusMatch repository>
+These values validate the current research/development pipeline. They are **not** evidence of real-world predictive performance.
+
+## Run the Phase 2 Docker demo
+
+From the repository root:
+
+~~~powershell
+docker compose -f Phase2\docker\docker-compose.yml down
+docker compose -f Phase2\docker\docker-compose.yml up --build
+~~~
+
+Run the monitoring dashboard in another terminal:
+
+~~~powershell
 python GUI\main.py
-```
+~~~
 
-The Docker simulation uses three reliable player profiles and one intentionally
-unreliable profile. The data is a controlled development simulation, not real
-player telemetry.
+The demonstration uses three reliable player configurations and one intentionally unreliable configuration. The automatic matchmaker creates a three-player match from compatible reliable players while the unreliable player remains waiting.
+
+## Trust inference
+
+The Python inference entry point can be run directly from the repository root with the 14 required features:
+
+~~~powershell
+python Phase2\inference\trust_inference.py ^
+  --history_sessions 20 ^
+  --join_success_rate 0.95 ^
+  --queue_abandon_rate 0.05 ^
+  --completion_rate 0.90 ^
+  --disconnect_rate 0.05 ^
+  --reconnect_success_rate 0.90 ^
+  --recent_3_join_success_rate 1.00 ^
+  --recent_3_queue_abandon_rate 0.00 ^
+  --recent_3_completion_rate 1.00 ^
+  --recent_3_disconnect_rate 0.00 ^
+  --recent_3_reconnect_success_rate 1.00 ^
+  --avg_wait_time_sec 25 ^
+  --avg_ping_ms 45 ^
+  --avg_chat_messages 3
+~~~
+
+## Research
+
+Dota 2 is retained as supporting behavioural/NLP research only. The final Trust model uses NexusMatch-specific synthetic telemetry.
+
+See Phase2/research/README.md.
+
+## Limitations
+
+Phase 2 is a validated prototype, not a production service. The current Trust data and Docker player behaviour are simulated, the server state is in memory, the GUI is monitoring-only, and real-player generalization has not been established.
+
+## Phase 3 handoff
+
+Build on the frozen Phase 2 baseline with controlled matchmaking benchmarks, stronger and more varied telemetry, team-balancing experiments, richer network simulation, persistence, and final paper/presentation work.
