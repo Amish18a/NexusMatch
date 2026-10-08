@@ -1,0 +1,2 @@
+model,threshold,accuracy,balanced_accuracy,precision_unreliable,recall_unreliable,f1_unreliable,roc_auc,average_precision,brier_score
+Logistic Regression - Calibrated Unseen Test,0.2884852244151591,0.5837264150943396,0.6140684770477274,0.45734866675091623,0.7277297405992359,0.5616948626416266,0.6918406749559898,0.6097954819362251,0.2023150311154469

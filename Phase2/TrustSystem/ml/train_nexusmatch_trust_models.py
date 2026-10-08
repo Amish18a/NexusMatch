@@ -560,85 +560,66 @@ def main() -> None:
         index=False,
     )
 
-    # Feature importance is available for tree ensembles.
-    importance_model = fitted.get(
-        best_name
+    # Export feature importance / coefficients for the selected model.
+    importance_model = fitted.get(best_name)
+
+    importance_file = (
+        OUTPUT_DIR
+        / "final_feature_importance.csv"
     )
 
     if hasattr(
         importance_model,
         "feature_importances_",
     ):
-        importance = pd.Series(
-            importance_model.feature_importances_,
-            index=FEATURES,
-            name="importance",
+        importance = pd.DataFrame(
+            {
+                "feature": FEATURES,
+                "importance": importance_model.feature_importances_,
+            }
         ).sort_values(
-            ascending=False
+            "importance",
+            ascending=False,
         )
 
-        importance_file = (
-            OUTPUT_DIR
-            / "final_feature_importance.csv"
+    elif (
+        best_name == "Logistic Regression"
+        and hasattr(importance_model, "named_steps")
+        and "model" in importance_model.named_steps
+    ):
+        logistic_model = importance_model.named_steps["model"]
+
+        coefficients = logistic_model.coef_[0]
+
+        importance = pd.DataFrame(
+            {
+                "feature": FEATURES,
+                "coefficient": coefficients,
+                "absolute_importance": np.abs(coefficients),
+            }
+        ).sort_values(
+            "absolute_importance",
+            ascending=False,
         )
 
+    else:
+        importance = None
+
+    if importance is not None:
         importance.to_csv(
             importance_file,
-            header=True,
+            index=False,
         )
 
         print(
             "\n========== FEATURE IMPORTANCE =========="
         )
         print(
-            importance.to_string()
+            importance.to_string(index=False)
         )
+
         print(
-            f"Saved: {importance_file}"
+            f"Saved feature importance: {importance_file}"
         )
-
-    model_file = (
-        OUTPUT_DIR
-        / "final_trust_model.joblib"
-    )
-
-    package = {
-        "model": calibrated,
-        "features": FEATURES,
-        "threshold": best_threshold,
-        "target": TARGET,
-        "trust_score_formula": (
-            "100 * (1 - predicted_unreliable_risk)"
-        ),
-    }
-
-    joblib.dump(
-        package,
-        model_file,
-    )
-
-    print(
-        "\n========== FINAL TEST RESULT =========="
-    )
-    print(
-        pd.DataFrame([test_result]).to_string(
-            index=False
-        )
-    )
-
-    print(
-        f"Saved validation comparison: {validation_file}"
-    )
-    print(
-        f"Saved final test metrics: {test_metrics_file}"
-    )
-    print(
-        f"Saved test trust predictions: {predictions_file}"
-    )
-    print(
-        f"Saved model package: {model_file}"
-    )
-
-
 if __name__ == "__main__":
     main()
