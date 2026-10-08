@@ -1,8 +1,6 @@
 #include "TrustModelBridge.h"
 
-#include <chrono>
 #include <cstdlib>
-#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -129,17 +127,13 @@ bool TrustModelBridge::predict(
     std::string& errorMessage
 ) const
 {
-    // Use std::system() with redirected output instead of popen/pclose.
-    // This avoids CRT differences between Windows/MinGW toolchains.
-    const auto uniqueId = std::chrono::high_resolution_clock::now()
-        .time_since_epoch().count();
-
-    const std::filesystem::path outputFile =
-        std::filesystem::temp_directory_path()
-        / ("nexusmatch_trust_" + std::to_string(uniqueId) + ".txt");
+    // Use std::system() with redirected output. This avoids popen/pclose
+    // compatibility differences in older MinGW/G++ Windows toolchains.
+    const std::string outputFile =
+        "nexusmatch_trust_inference_output.txt";
 
     std::ostringstream command;
-    command << quoteArgument(pythonExecutable)
+    command << pythonExecutable
             << " "
             << quoteArgument(inferenceScript)
             << " --history_sessions " << f.historySessions
@@ -156,19 +150,24 @@ bool TrustModelBridge::predict(
             << " --avg_wait_time_sec " << f.avgWaitTimeSec
             << " --avg_ping_ms " << f.avgPingMs
             << " --avg_chat_messages " << f.avgChatMessages
-            << " > " << quoteArgument(outputFile.string());
+            << " > " << quoteArgument(outputFile);
 
     const int exitCode = std::system(command.str().c_str());
 
     std::ifstream outputStreamFile(outputFile);
+    if (!outputStreamFile)
+    {
+        errorMessage = "Could not open Trust inference output file.";
+        return false;
+    }
+
     std::string output(
         (std::istreambuf_iterator<char>(outputStreamFile)),
         std::istreambuf_iterator<char>()
     );
     outputStreamFile.close();
 
-    std::error_code removeError;
-    std::filesystem::remove(outputFile, removeError);
+    std::remove(outputFile.c_str());
 
     if (exitCode != 0)
     {
