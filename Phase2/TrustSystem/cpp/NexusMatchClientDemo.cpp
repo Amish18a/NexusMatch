@@ -462,6 +462,11 @@ int main()
         "TRUST 104"
     );
 
+    sendCommand(
+        socketHandle,
+        "START_MATCHMAKING"
+    );
+
     prepareMatchmakingQueue(
         socketHandle
     );
