@@ -14,7 +14,7 @@ COPY Phase2/TrustSystem /app/Phase2/TrustSystem
 
 WORKDIR /app/Phase2/TrustSystem
 
-RUN g++ -std=c++17 \
+RUN g++ -std=c++17 -pthread \
     -I ./cpp \
     -I /app/Phase1/include \
     cpp/TrustModelBridge.cpp \
