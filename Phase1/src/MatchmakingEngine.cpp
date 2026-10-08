@@ -42,14 +42,24 @@ double MatchmakingEngine::calculatePingScore(const Player& player,const Player& 
     return score;
 }
 
-double MatchmakingEngine::calculateTrustScore(const Player& player,const Player& candidate) const 
+double MatchmakingEngine::calculateTrustScore(const Player& player,const Player& candidate) const
 {
-    int difference =std::abs(player.getTrustScore() - candidate.getTrustScore());
-    double score = 100.0 - difference;
-    if (score<0)
+    // Trust is treated as a pair-quality factor. Using the average prevents
+    // a low-trust anchor from preferring another low-trust candidate simply
+    // because their Trust scores are similar.
+    double score =
+        (player.getTrustScore() + candidate.getTrustScore()) / 2.0;
+
+    if (score < 0.0)
     {
-        score =0;
+        score = 0.0;
     }
+
+    if (score > 100.0)
+    {
+        score = 100.0;
+    }
+
     return score;
 }
 
