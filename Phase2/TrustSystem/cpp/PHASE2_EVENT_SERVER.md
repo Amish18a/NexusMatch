@@ -112,9 +112,12 @@ This remains a controlled development simulation, not real player telemetry.
 
 ## Live monitoring GUI
 
-The Tkinter monitoring dashboard is at:
+The live Tkinter monitoring dashboard uses the original project GUI:
 
-    Phase2/TrustSystem/gui/nexusmatch_monitor.py
+    GUI/main.py
+
+The Phase 1 visual design is retained, while its player data is now read from
+the live Phase 2 C++ server instead of hard-coded values.
 
 Run the Docker server and player simulation first:
 
@@ -122,10 +125,10 @@ Run the Docker server and player simulation first:
 
 Then, from the repository root, run:
 
-    python Phase2\TrustSystem\gui\nexusmatch_monitor.py
+    python GUI\main.py
 
-The GUI connects to the published TCP port 5050 and refreshes the shared
-server state every two seconds. It displays player ID, skill, ping, Trust,
-waiting status, completed session count, queue size, and the latest match.
+The GUI connects to TCP port 5050 and refreshes the shared server state every
+two seconds. It displays connected players, queue size, matches created,
+player skill, region, mode, ping, Trust, status, and recent server activity.
 
 The GUI is a monitoring client only; it does not create or modify matches.
