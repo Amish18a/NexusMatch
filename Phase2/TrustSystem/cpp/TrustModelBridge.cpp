@@ -137,7 +137,10 @@ bool TrustModelBridge::predict(
 {
     std::ostringstream command;
 
-    command << quoteArgument(pythonExecutable)
+    // On Windows, _popen() executes through cmd.exe. Quoting a simple
+    // executable name such as "python" can be misinterpreted by cmd.exe,
+    // so keep the executable unquoted when it contains no spaces.
+    command << pythonExecutable
             << " "
             << quoteArgument(inferenceScript)
             << " --history_sessions " << f.historySessions
