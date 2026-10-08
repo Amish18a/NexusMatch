@@ -1,0 +1,26 @@
+# Git metadata and editor files
+.git/
+.github/
+.vscode/
+
+# Python cache/build artifacts
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+
+# Large raw/generated Dota data not needed at runtime
+Phase2/TrustSystem/data/dota2_raw/
+Phase2/TrustSystem/data/dota2_processed/
+
+# Training datasets/results are not needed by the runtime container.
+Phase2/TrustSystem/data/ml/*
+!Phase2/TrustSystem/data/ml/nexusmatch_trust_results/
+!Phase2/TrustSystem/data/ml/nexusmatch_trust_results/final_trust_model.joblib
+
+# Other generated data not needed by the runtime server
+Phase2/TrustSystem/data/nexusmatch_simulation/
+
+# Local executables
+**/*.exe
+**/*.out
+**/*.o
