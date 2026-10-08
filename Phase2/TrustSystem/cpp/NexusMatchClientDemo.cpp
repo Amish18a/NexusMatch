@@ -11,6 +11,7 @@ using SocketHandle = SOCKET;
 const SocketHandle INVALID_SOCKET_HANDLE = INVALID_SOCKET;
 #else
 #include <arpa/inet.h>
+#include <netdb.h>
 #include <sys/socket.h>
 #include <unistd.h>
 using SocketHandle = int;
@@ -143,8 +144,31 @@ int main()
     serverAddress.sin_port =
         htons(static_cast<unsigned short>(port));
 
-    // Docker supplies the service hostname through an environment variable.
-    serverAddress.sin_addr.s_addr = inet_addr(host);
+    // Resolve both IPv4 addresses (127.0.0.1) and Docker DNS names
+    // (for example, nexusmatch-server).
+    addrinfo hints{};
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+
+    addrinfo* resolved = nullptr;
+    const std::string portString = std::to_string(port);
+    const int resolveResult =
+        getaddrinfo(host, portString.c_str(), &hints, &resolved);
+
+    if (resolveResult != 0 || resolved == nullptr)
+    {
+        std::cerr << "Could not resolve " << host << ":" << port << ".\n";
+        closeSocket(socketHandle);
+#ifdef _WIN32
+        WSACleanup();
+#endif
+        return 1;
+    }
+
+    sockaddr_in* resolvedAddress =
+        reinterpret_cast<sockaddr_in*>(resolved->ai_addr);
+    serverAddress.sin_addr = resolvedAddress->sin_addr;
+    freeaddrinfo(resolved);
 
     if (connect(
             socketHandle,
