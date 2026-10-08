@@ -47,6 +47,7 @@ struct MatchmakingRuntime
     AVLTree skillTree;
     MatchmakingEngine engine;
     int nextMatchId = 1;
+    bool automaticMatchmakingEnabled = false;
 };
 
 void closeSocket(SocketHandle socket)
@@ -349,6 +350,12 @@ std::string processCommand(
         return "OK QUEUE_DISPLAYED";
     }
 
+    if (command == "START_MATCHMAKING")
+    {
+        matchmaking.automaticMatchmakingEnabled = true;
+        return "OK AUTOMATIC_MATCHMAKING_ENABLED";
+    }
+
     int id = 0;
     parser >> id;
 
@@ -397,16 +404,19 @@ std::string processCommand(
             return "ERROR " + error;
         }
 
-        const matchResult =
-            tryAutomaticMatch(
-                players,
-                matchmaking,
-                3
-            );
-
-        if (!matchResult.empty())
+        if (matchmaking.automaticMatchmakingEnabled)
         {
-            return "OK QUEUE -> " + matchResult;
+            const std::string matchResult =
+                tryAutomaticMatch(
+                    players,
+                    matchmaking,
+                    3
+                );
+
+            if (!matchResult.empty())
+            {
+                return "OK QUEUE -> " + matchResult;
+            }
         }
 
         return "OK QUEUE";
