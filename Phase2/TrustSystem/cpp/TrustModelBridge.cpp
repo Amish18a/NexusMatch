@@ -1,15 +1,11 @@
 #include "TrustModelBridge.h"
 
-#include <cstdio>
+#include <chrono>
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <sstream>
 #include <string>
-
-// MinGW/G++ on Windows exposes the POSIX-style popen/pclose names.
-// Using these names keeps the bridge portable across the toolchains used
-// for NexusMatch development.
-#define NM_POPEN popen
-#define NM_PCLOSE pclose
 
 std::string TrustModelBridge::quoteArgument(const std::string& value)
 {
@@ -133,12 +129,17 @@ bool TrustModelBridge::predict(
     std::string& errorMessage
 ) const
 {
-    std::ostringstream command;
+    // Use std::system() with redirected output instead of popen/pclose.
+    // This avoids CRT differences between Windows/MinGW toolchains.
+    const auto uniqueId = std::chrono::high_resolution_clock::now()
+        .time_since_epoch().count();
 
-    // On Windows, _popen() executes through cmd.exe. Quoting a simple
-    // executable name such as "python" can be misinterpreted by cmd.exe,
-    // so keep the executable unquoted when it contains no spaces.
-    command << pythonExecutable
+    const std::filesystem::path outputFile =
+        std::filesystem::temp_directory_path()
+        / ("nexusmatch_trust_" + std::to_string(uniqueId) + ".txt");
+
+    std::ostringstream command;
+    command << quoteArgument(pythonExecutable)
             << " "
             << quoteArgument(inferenceScript)
             << " --history_sessions " << f.historySessions
@@ -154,24 +155,21 @@ bool TrustModelBridge::predict(
             << " --recent_3_reconnect_success_rate " << f.recent3ReconnectSuccessRate
             << " --avg_wait_time_sec " << f.avgWaitTimeSec
             << " --avg_ping_ms " << f.avgPingMs
-            << " --avg_chat_messages " << f.avgChatMessages;
+            << " --avg_chat_messages " << f.avgChatMessages
+            << " > " << quoteArgument(outputFile.string());
 
-    FILE* pipe = NM_POPEN(command.str().c_str(), "r");
-    if (pipe == nullptr)
-    {
-        errorMessage = "Unable to start Python Trust inference process.";
-        return false;
-    }
+    const int exitCode = std::system(command.str().c_str());
 
-    char buffer[512];
-    std::string output;
+    std::ifstream outputStreamFile(outputFile);
+    std::string output(
+        (std::istreambuf_iterator<char>(outputStreamFile)),
+        std::istreambuf_iterator<char>()
+    );
+    outputStreamFile.close();
 
-    while (std::fgets(buffer, sizeof(buffer), pipe) != nullptr)
-    {
-        output += buffer;
-    }
+    std::error_code removeError;
+    std::filesystem::remove(outputFile, removeError);
 
-    const int exitCode = NM_PCLOSE(pipe);
     if (exitCode != 0)
     {
         errorMessage = "Python Trust inference exited with code "
