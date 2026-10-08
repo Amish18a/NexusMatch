@@ -1,7 +1,7 @@
 services:
   nexusmatch-server:
     build:
-      context: ../..
+      context: ../../..
       dockerfile: Phase2/TrustSystem/docker/Dockerfile
     container_name: nexusmatch-server
     ports:
@@ -10,7 +10,7 @@ services:
 
   player-simulation:
     build:
-      context: ../..
+      context: ../../..
       dockerfile: Phase2/TrustSystem/docker/Dockerfile.client
     container_name: nexusmatch-player-simulation
     environment:
