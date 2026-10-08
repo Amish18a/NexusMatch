@@ -191,6 +191,98 @@ bool addToMatchmaking(
     return true;
 }
 
+std::string tryAutomaticMatch(
+    std::map<int, PlayerState>& players,
+    MatchmakingRuntime& matchmaking,
+    int matchSize
+)
+{
+    if (matchmaking.queue.getSize() < matchSize)
+    {
+        return "";
+    }
+
+    const Player anchor = matchmaking.queue.getFront();
+
+    std::vector<Player> matchedPlayers;
+
+    const bool success =
+        matchmaking.engine.findGroupMatch(
+            anchor,
+            matchmaking.skillTree,
+            matchSize,
+            matchedPlayers
+        );
+
+    if (!success)
+    {
+        return "";
+    }
+
+    Match match(
+        matchmaking.nextMatchId++,
+        matchSize
+    );
+
+    for (const Player& matchedPlayer : matchedPlayers)
+    {
+        match.addPlayer(matchedPlayer);
+    }
+
+    std::cout
+        << "\n========== AUTOMATIC MATCH CREATED =========="
+        << "\n";
+
+    std::cout
+        << "Match ID: "
+        << match.getMatchId()
+        << "\n";
+
+    for (std::size_t i = 0; i < matchedPlayers.size(); ++i)
+    {
+        std::cout
+            << i + 1
+            << ". "
+            << matchedPlayers[i].getName()
+            << " | Skill: "
+            << matchedPlayers[i].getSkill()
+            << " | Trust: "
+            << matchedPlayers[i].getTrustScore()
+            << "\n";
+    }
+
+    for (const Player& matchedPlayer : matchedPlayers)
+    {
+        auto found = players.find(matchedPlayer.getId());
+
+        if (found != players.end())
+        {
+            removeFromMatchmaking(
+                found->second,
+                matchmaking
+            );
+        }
+    }
+
+    std::ostringstream response;
+
+    response << "MATCH "
+             << match.getMatchId()
+             << " AUTO_CREATED players=";
+
+    for (std::size_t i = 0; i < matchedPlayers.size(); ++i)
+    {
+        if (i > 0)
+        {
+            response << ",";
+        }
+
+        response << matchedPlayers[i].getId();
+    }
+
+    return response.str();
+}
+
 std::string processCommand(
     std::map<int, PlayerState>& players,
     const std::string& input,
@@ -303,6 +395,18 @@ std::string processCommand(
         if (!addToMatchmaking(state, matchmaking, error))
         {
             return "ERROR " + error;
+        }
+
+        const matchResult =
+            tryAutomaticMatch(
+                players,
+                matchmaking,
+                3
+            );
+
+        if (!matchResult.empty())
+        {
+            return "OK QUEUE -> " + matchResult;
         }
 
         return "OK QUEUE";
