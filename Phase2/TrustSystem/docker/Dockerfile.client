@@ -5,9 +5,10 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-
 COPY Phase2/TrustSystem/cpp/NexusMatchClientDemo.cpp /app/NexusMatchClientDemo.cpp
-
 RUN g++ -std=c++17 /app/NexusMatchClientDemo.cpp -o /app/nexusmatch_client_demo
 
-CMD ["/bin/sh", "-c", "sleep 2 && /app/nexusmatch_client_demo"]
+ENV NEXUSMATCH_SERVER_HOST=nexusmatch-server
+ENV NEXUSMATCH_SERVER_PORT=5050
+
+CMD ["/bin/sh", "-c", "sleep 3 && /app/nexusmatch_client_demo"]
