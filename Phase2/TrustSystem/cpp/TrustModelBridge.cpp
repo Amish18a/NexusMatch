@@ -5,13 +5,11 @@
 #include <sstream>
 #include <string>
 
-#ifdef _WIN32
-    #define NM_POPEN _popen
-    #define NM_PCLOSE _pclose
-#else
-    #define NM_POPEN popen
-    #define NM_PCLOSE pclose
-#endif
+// MinGW/G++ on Windows exposes the POSIX-style popen/pclose names.
+// Using these names keeps the bridge portable across the toolchains used
+// for NexusMatch development.
+#define NM_POPEN popen
+#define NM_PCLOSE pclose
 
 std::string TrustModelBridge::quoteArgument(const std::string& value)
 {
