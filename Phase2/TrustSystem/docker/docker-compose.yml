@@ -8,14 +8,90 @@ services:
       - "5050:5050"
     restart: "no"
 
-  player-simulation:
+  player-amish:
     build:
       context: ../../..
       dockerfile: Phase2/TrustSystem/docker/Dockerfile.client
-    container_name: nexusmatch-player-simulation
+    container_name: nexusmatch-player-amish
     environment:
       NEXUSMATCH_SERVER_HOST: nexusmatch-server
       NEXUSMATCH_SERVER_PORT: "5050"
+      PLAYER_ID: "101"
+      PLAYER_NAME: Amish
+      PLAYER_SKILL: "1520"
+      PLAYER_REGION: India
+      PLAYER_MODE: Ranked
+      PLAYER_PING: "41"
+      PLAYER_UNRELIABLE: "0"
+      PLAYER_START_DELAY: "5"
+      PLAYER_QUEUE_DELAY: "0"
+      PLAYER_LINGER_SECONDS: "15"
+    depends_on:
+      - nexusmatch-server
+    restart: "no"
+
+  player-gurveer:
+    build:
+      context: ../../..
+      dockerfile: Phase2/TrustSystem/docker/Dockerfile.client
+    container_name: nexusmatch-player-gurveer
+    environment:
+      NEXUSMATCH_SERVER_HOST: nexusmatch-server
+      NEXUSMATCH_SERVER_PORT: "5050"
+      PLAYER_ID: "102"
+      PLAYER_NAME: Gurveer
+      PLAYER_SKILL: "1520"
+      PLAYER_REGION: India
+      PLAYER_MODE: Ranked
+      PLAYER_PING: "42"
+      PLAYER_UNRELIABLE: "0"
+      PLAYER_START_DELAY: "6"
+      PLAYER_QUEUE_DELAY: "0"
+      PLAYER_LINGER_SECONDS: "15"
+    depends_on:
+      - nexusmatch-server
+    restart: "no"
+
+  player-riya:
+    build:
+      context: ../../..
+      dockerfile: Phase2/TrustSystem/docker/Dockerfile.client
+    container_name: nexusmatch-player-riya
+    environment:
+      NEXUSMATCH_SERVER_HOST: nexusmatch-server
+      NEXUSMATCH_SERVER_PORT: "5050"
+      PLAYER_ID: "103"
+      PLAYER_NAME: Riya
+      PLAYER_SKILL: "1520"
+      PLAYER_REGION: India
+      PLAYER_MODE: Ranked
+      PLAYER_PING: "43"
+      PLAYER_UNRELIABLE: "0"
+      PLAYER_START_DELAY: "7"
+      PLAYER_QUEUE_DELAY: "0"
+      PLAYER_LINGER_SECONDS: "15"
+    depends_on:
+      - nexusmatch-server
+    restart: "no"
+
+  player-player4:
+    build:
+      context: ../../..
+      dockerfile: Phase2/TrustSystem/docker/Dockerfile.client
+    container_name: nexusmatch-player-player4
+    environment:
+      NEXUSMATCH_SERVER_HOST: nexusmatch-server
+      NEXUSMATCH_SERVER_PORT: "5050"
+      PLAYER_ID: "104"
+      PLAYER_NAME: Player4
+      PLAYER_SKILL: "1520"
+      PLAYER_REGION: India
+      PLAYER_MODE: Ranked
+      PLAYER_PING: "55"
+      PLAYER_UNRELIABLE: "1"
+      PLAYER_START_DELAY: "12"
+      PLAYER_QUEUE_DELAY: "0"
+      PLAYER_LINGER_SECONDS: "15"
     depends_on:
       - nexusmatch-server
     restart: "no"
