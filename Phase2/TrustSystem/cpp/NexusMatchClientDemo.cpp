@@ -125,12 +125,26 @@ int main()
         return 1;
     }
 
+    const char* hostEnvironment = std::getenv("NEXUSMATCH_SERVER_HOST");
+    const char* portEnvironment = std::getenv("NEXUSMATCH_SERVER_PORT");
+
+    const char* host =
+        hostEnvironment != nullptr
+        ? hostEnvironment
+        : "127.0.0.1";
+
+    const int port =
+        portEnvironment != nullptr
+        ? std::atoi(portEnvironment)
+        : 5050;
+
     sockaddr_in serverAddress{};
     serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(5050);
-    // inet_addr is available in older MinGW/Windows socket toolchains
-    // where inet_pton may not be declared by the default headers.
-    serverAddress.sin_addr.s_addr = inet_addr("127.0.0.1");
+    serverAddress.sin_port =
+        htons(static_cast<unsigned short>(port));
+
+    // Docker supplies the service hostname through an environment variable.
+    serverAddress.sin_addr.s_addr = inet_addr(host);
 
     if (connect(
             socketHandle,
@@ -138,7 +152,7 @@ int main()
             sizeof(serverAddress)
         ) < 0)
     {
-        std::cerr << "Could not connect to 127.0.0.1:5050.\n";
+        std::cerr << "Could not connect to " << host << ":" << port << ".\n";
         closeSocket(socketHandle);
 #ifdef _WIN32
         WSACleanup();
