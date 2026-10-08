@@ -1,38 +1,68 @@
-# NexusMatch Docker Prototype
+# NexusMatch Docker Phase 2
 
-This Docker setup runs the Phase 2 C++ event server and the simulated player
-client as separate containers on the same Docker network.
+This Docker setup runs the Phase 2 C++ matchmaking server and four independent
+player-client containers on the same Docker network.
+
+## Services
+
+```text
+nexusmatch-server
+player-amish
+player-gurveer
+player-riya
+player-player4
+```
+
+All player services use the same compiled client image. Environment variables
+define each player's ID, name, skill, ping and reliability profile.
+
+## Runtime flow
+
+```text
+Player container
+      ↓ TCP
+NexusMatch C++ server
+      ↓
+Behaviour telemetry
+      ↓
+TrustModelBridge
+      ↓
+Python ML model
+      ↓
+Trust Score
+      ↓
+Automatic matchmaking
+```
 
 ## Run
 
-From `Phase2/TrustSystem`:
+From Phase2/TrustSystem:
 
-    docker compose -f docker/docker-compose.yml up --build
+```powershell
+docker compose -f docker\docker-compose.yml down
+docker compose -f docker\docker-compose.yml up --build
+```
 
-The server listens on container port 5050. The compose file publishes it as
-`localhost:5050` on the host.
+The server is published as localhost:5050.
 
-## Architecture
+Run the monitoring GUI from another terminal at the repository root:
 
-    nexusmatch-server
-       |
-       | TCP
-       v
-    player-simulation
+```powershell
+python GUI\main.py
+```
 
-The server performs:
+## Demo behaviour
 
-    player events -> behaviour tracker -> 14 features -> ML Trust inference
+Three player containers use reliable session behaviour. Player4 uses an
+intentionally unreliable profile. After historical sessions, the Trust model
+classifies the players, then live matchmaking is enabled.
 
-The client generates reliable and unreliable session behaviour for development
-and validation. This is simulation telemetry, not real-player data.
+When three compatible reliable players are available, an automatic three-player
+match is created. Player4 remains in the waiting queue because of the low Trust
+Score.
 
-## Stop
+## Important limitation
 
-    docker compose -f docker/docker-compose.yml down
-
-## Important
-
-The current Trust model is a Phase 2 development model trained on synthetic
-NexusMatch data. Docker validates reproducible runtime integration; it does not
-establish real-world predictive performance.
+This Docker environment is a controlled development simulation. It validates
+reproducible client/server integration and matchmaking behaviour; it does not
+represent real player telemetry or establish real-world model performance.
