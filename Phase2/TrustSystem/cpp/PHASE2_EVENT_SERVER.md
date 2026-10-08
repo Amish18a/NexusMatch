@@ -29,6 +29,10 @@ This keeps historical telemetry collection separate from live matchmaking.
 Once enabled, the server checks for a match after each successful `QUEUE`
 event.
 
+The server also accepts multiple TCP clients concurrently. This allows the
+player simulation and a monitoring dashboard to connect independently while
+sharing the same matchmaking state.
+
 When at least three players are waiting, the server:
 
 1. Takes the first waiting player from the Queue as the anchor.
@@ -65,6 +69,8 @@ Player4 remains in the queue.
     START_MATCHMAKING
     SHOW id
     SHOW_QUEUE
+    SHOW_ALL
+    START_MATCHMAKING
     QUIT
 
 ## Build on Windows/MinGW
@@ -102,3 +108,24 @@ creates a three-player match as soon as enough compatible players are waiting.
 The unreliable player remains waiting after the match.
 
 This remains a controlled development simulation, not real player telemetry.
+
+
+## Live monitoring GUI
+
+The Tkinter monitoring dashboard is at:
+
+    Phase2/TrustSystem/gui/nexusmatch_monitor.py
+
+Run the Docker server and player simulation first:
+
+    docker compose -f docker\docker-compose.yml up --build
+
+Then, from the repository root, run:
+
+    python Phase2\TrustSystem\gui\nexusmatch_monitor.py
+
+The GUI connects to the published TCP port 5050 and refreshes the shared
+server state every two seconds. It displays player ID, skill, ping, Trust,
+waiting status, completed session count, queue size, and the latest match.
+
+The GUI is a monitoring client only; it does not create or modify matches.
