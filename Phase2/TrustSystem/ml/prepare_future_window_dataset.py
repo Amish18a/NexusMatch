@@ -31,6 +31,12 @@ INPUT_FILE = (
     / "dota2_processed"
     / "player_behavior_features.csv"
 )
+MATCH_FILE = (
+    BASE_DIR
+    / "data"
+    / "dota2_processed"
+    / "match_processed.csv"
+)
 
 OUTPUT_DIR = BASE_DIR / "data" / "ml"
 OUTPUT_FILE = OUTPUT_DIR / "future_window_trust_dataset.csv"
@@ -81,13 +87,18 @@ def main() -> None:
 
     if not INPUT_FILE.exists():
         raise FileNotFoundError(f"Missing processed dataset: {INPUT_FILE}")
+    if not MATCH_FILE.exists():
+        raise FileNotFoundError(f"Missing processed match dataset: {MATCH_FILE}")
 
     df = pd.read_csv(INPUT_FILE)
+    match = pd.read_csv(
+        MATCH_FILE,
+        usecols=["match_id", "start_datetime"],
+    )
 
     required = {
         "account_id",
         "match_id",
-        "start_datetime",
         "leaver_flag",
         "kda_ratio",
         "gold_per_min",
@@ -99,6 +110,29 @@ def main() -> None:
     missing = sorted(required.difference(df.columns))
     if missing:
         raise ValueError(f"Missing required columns: {missing}")
+
+    # start_datetime belongs to the match-level table, not the player-level
+    # feature table, so merge it here before constructing temporal features.
+    df["match_id"] = pd.to_numeric(df["match_id"], errors="coerce")
+    match["match_id"] = pd.to_numeric(match["match_id"], errors="coerce")
+    match["start_datetime"] = pd.to_datetime(
+        match["start_datetime"],
+        errors="coerce",
+        utc=True,
+    )
+
+    df = df.merge(
+        match[["match_id", "start_datetime"]],
+        on="match_id",
+        how="left",
+        validate="many_to_one",
+    )
+
+    if df["start_datetime"].isna().all():
+        raise ValueError(
+            "Could not attach start_datetime from match_processed.csv. "
+            "Check that match_id values overlap between the two files."
+        )
 
     df["account_id"] = pd.to_numeric(df["account_id"], errors="coerce")
     df["match_id"] = pd.to_numeric(df["match_id"], errors="coerce")
