@@ -149,3 +149,10 @@ environment variables for player identity and behaviour profile. This models
 separate player processes/containers communicating with the same matchmaking
 server rather than one monolithic simulator.
 
+
+
+## Phase 2 status
+
+The event server, Trust inference bridge, automatic matchmaking, Docker
+multi-client simulation, and original GUI integration are complete. The
+remaining project work is part of Phase 3 evaluation and final documentation.
