@@ -21,6 +21,11 @@ RUN g++ -std=c++17 \
     cpp/PlayerBehaviourTracker.cpp \
     cpp/NexusMatchServer.cpp \
     /app/Phase1/src/Player.cpp \
+    /app/Phase1/src/Queue.cpp \
+    /app/Phase1/src/AVLTree.cpp \
+    /app/Phase1/src/HashTable.cpp \
+    /app/Phase1/src/MatchmakingEngine.cpp \
+    /app/Phase1/src/Match.cpp \
     -o /usr/local/bin/nexusmatch_server
 
 EXPOSE 5050
