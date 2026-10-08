@@ -467,13 +467,11 @@ int main()
     );
 
     std::cout
-        << "\n========== TRUST-AWARE MATCHMAKING =========="
-        << "\n";
-
-    sendCommand(
-        socketHandle,
-        "MATCHMAKE 101 3"
-    );
+        << "\n========== AUTOMATIC MATCHMAKING COMPLETE =========="
+        << "\n"
+        << "The server creates a 3-player match automatically when enough "
+        << "compatible players are waiting.\n"
+        << "No manual MATCHMAKE command is required.\n";
 
     std::cout
         << "\n========== PLAYER STATE AFTER MATCH =========="
