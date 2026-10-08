@@ -16,7 +16,7 @@
 std::string TrustModelBridge::quoteArgument(const std::string& value)
 {
 #ifdef _WIN32
-    std::string quoted = "\"" + value;
+    std::string quoted = "\"";
     std::size_t backslashes = 0;
 
     for (char ch : value)
