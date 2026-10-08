@@ -54,7 +54,33 @@ struct MatchmakingRuntime
     bool automaticMatchmakingEnabled = false;
     int lastMatchId = 0;
     std::vector<int> lastMatchedPlayerIds;
+    std::vector<std::string> activityLog;
 };
+
+void addActivity(
+    MatchmakingRuntime& matchmaking,
+    const std::string& activity
+)
+{
+    matchmaking.activityLog.push_back(activity);
+
+    const std::size_t maxEntries = 8;
+
+    if (matchmaking.activityLog.size() > maxEntries)
+    {
+        matchmaking.activityLog.erase(
+            matchmaking.activityLog.begin()
+        );
+    }
+}
+
+bool isMonitoringCommand(const std::string& command)
+{
+    return command == "SHOW_ALL"
+        || command == "SHOW_QUEUE"
+        || command == "SHOW"
+        || command == "START_MATCHMAKING";
+}
 
 void closeSocket(SocketHandle socket)
 {
@@ -407,8 +433,24 @@ std::string processCommand(
                 << ",trust=" << playerState.player.getTrustScore()
                 << ",waiting="
                 << (playerState.player.isWaiting() ? "yes" : "no")
+                << ",connected="
+                << (playerState.connected ? "yes" : "no")
                 << ",sessions="
                 << playerState.tracker.sessionCount();
+        }
+
+        response << " | events=";
+
+        for (std::size_t i = 0;
+             i < matchmaking.activityLog.size();
+             ++i)
+        {
+            if (i > 0)
+            {
+                response << "||";
+            }
+
+            response << matchmaking.activityLog[i];
         }
 
         return response.str();
@@ -774,6 +816,19 @@ void handleClient(
                     trustBridge,
                     matchmaking
                 );
+            }
+        }
+
+        if (!line.empty())
+        {
+            std::istringstream eventParser(line);
+            std::string eventCommand;
+            eventParser >> eventCommand;
+
+            if (!isMonitoringCommand(eventCommand))
+            {
+                std::string activity = "[" + eventCommand + "] " + response;
+                addActivity(matchmaking, activity);
             }
         }
 
