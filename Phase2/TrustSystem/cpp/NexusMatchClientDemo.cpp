@@ -128,7 +128,9 @@ int main()
     sockaddr_in serverAddress{};
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons(5050);
-    inet_pton(AF_INET, "127.0.0.1", &serverAddress.sin_addr);
+    // inet_addr is available in older MinGW/Windows socket toolchains
+    // where inet_pton may not be declared by the default headers.
+    serverAddress.sin_addr.s_addr = inet_addr("127.0.0.1");
 
     if (connect(
             socketHandle,
