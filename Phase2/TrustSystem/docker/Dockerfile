@@ -6,8 +6,8 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends g++ \
     && rm -rf /var/lib/apt/lists/*
 
-COPY Phase2/TrustSystem/requirements.txt /app/Phase2/TrustSystem/requirements.txt
-RUN pip install --no-cache-dir -r /app/Phase2/TrustSystem/requirements.txt
+COPY Phase2/TrustSystem/requirements-docker.txt /app/Phase2/TrustSystem/requirements-docker.txt
+RUN pip install --no-cache-dir -r /app/Phase2/TrustSystem/requirements-docker.txt
 
 COPY Phase1 /app/Phase1
 COPY Phase2/TrustSystem /app/Phase2/TrustSystem
@@ -24,5 +24,4 @@ RUN g++ -std=c++17 \
     -o /usr/local/bin/nexusmatch_server
 
 EXPOSE 5050
-
 CMD ["nexusmatch_server", "5050"]
