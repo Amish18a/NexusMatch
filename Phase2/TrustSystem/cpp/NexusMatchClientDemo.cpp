@@ -1,7 +1,8 @@
+#include <chrono>
 #include <cstdlib>
 #include <iostream>
-#include <sstream>
 #include <string>
+#include <thread>
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -17,6 +18,20 @@ using SocketHandle = int;
 const SocketHandle INVALID_SOCKET_HANDLE = -1;
 #endif
 
+struct PlayerConfig
+{
+    int id = 101;
+    std::string name = "Amish";
+    int skill = 1520;
+    std::string region = "India";
+    std::string mode = "Ranked";
+    int ping = 41;
+    bool unreliable = false;
+    int startDelaySeconds = 5;
+    int queueDelaySeconds = 0;
+    int lingerSeconds = 15;
+};
+
 void closeSocket(SocketHandle socket)
 {
 #ifdef _WIN32
@@ -26,7 +41,10 @@ void closeSocket(SocketHandle socket)
 #endif
 }
 
-bool sendLine(SocketHandle socket, const std::string& line)
+bool sendLine(
+    SocketHandle socket,
+    const std::string& line
+)
 {
     const std::string message = line + "\n";
     const char* data = message.c_str();
@@ -35,9 +53,11 @@ bool sendLine(SocketHandle socket, const std::string& line)
     while (remaining > 0)
     {
 #ifdef _WIN32
-        const int sent = send(socket, data, static_cast<int>(remaining), 0);
+        const int sent =
+            send(socket, data, static_cast<int>(remaining), 0);
 #else
-        const ssize_t sent = send(socket, data, remaining, 0);
+        const ssize_t sent =
+            send(socket, data, remaining, 0);
 #endif
 
         if (sent <= 0)
@@ -52,7 +72,10 @@ bool sendLine(SocketHandle socket, const std::string& line)
     return true;
 }
 
-bool receiveLine(SocketHandle socket, std::string& line)
+bool receiveLine(
+    SocketHandle socket,
+    std::string& line
+)
 {
     line.clear();
     char ch = 0;
@@ -60,9 +83,11 @@ bool receiveLine(SocketHandle socket, std::string& line)
     while (true)
     {
 #ifdef _WIN32
-        const int received = recv(socket, &ch, 1, 0);
+        const int received =
+            recv(socket, &ch, 1, 0);
 #else
-        const ssize_t received = recv(socket, &ch, 1, 0);
+        const ssize_t received =
+            recv(socket, &ch, 1, 0);
 #endif
 
         if (received <= 0)
@@ -78,6 +103,11 @@ bool receiveLine(SocketHandle socket, std::string& line)
         if (ch != '\r')
         {
             line += ch;
+        }
+
+        if (line.size() > 16384)
+        {
+            return false;
         }
     }
 }
@@ -108,173 +138,395 @@ bool sendCommand(
     return true;
 }
 
-void recordReliableSessions(
+int envInt(
+    const char* name,
+    int defaultValue
+)
+{
+    const char* value = std::getenv(name);
+
+    if (value == nullptr)
+    {
+        return defaultValue;
+    }
+
+    return std::atoi(value);
+}
+
+std::string envString(
+    const char* name,
+    const std::string& defaultValue
+)
+{
+    const char* value = std::getenv(name);
+
+    if (value == nullptr)
+    {
+        return defaultValue;
+    }
+
+    return value;
+}
+
+PlayerConfig loadConfig()
+{
+    PlayerConfig config;
+
+    config.id =
+        envInt("PLAYER_ID", config.id);
+
+    config.name =
+        envString("PLAYER_NAME", config.name);
+
+    config.skill =
+        envInt("PLAYER_SKILL", config.skill);
+
+    config.region =
+        envString("PLAYER_REGION", config.region);
+
+    config.mode =
+        envString("PLAYER_MODE", config.mode);
+
+    config.ping =
+        envInt("PLAYER_PING", config.ping);
+
+    config.unreliable =
+        envInt("PLAYER_UNRELIABLE", 0) != 0;
+
+    config.startDelaySeconds =
+        envInt("PLAYER_START_DELAY", config.startDelaySeconds);
+
+    config.queueDelaySeconds =
+        envInt("PLAYER_QUEUE_DELAY", config.queueDelaySeconds);
+
+    config.lingerSeconds =
+        envInt("PLAYER_LINGER_SECONDS", config.lingerSeconds);
+
+    return config;
+}
+
+bool connectToServer(
+    const char* host,
+    int port,
+    SocketHandle& socketHandle
+)
+{
+    for (int attempt = 1; attempt <= 10; ++attempt)
+    {
+        socketHandle =
+            socket(AF_INET, SOCK_STREAM, 0);
+
+        if (socketHandle == INVALID_SOCKET_HANDLE)
+        {
+            return false;
+        }
+
+        sockaddr_in serverAddress{};
+        serverAddress.sin_family = AF_INET;
+        serverAddress.sin_port =
+            htons(
+                static_cast<unsigned short>(port)
+            );
+
+        addrinfo hints{};
+        hints.ai_family = AF_INET;
+        hints.ai_socktype = SOCK_STREAM;
+
+        addrinfo* resolved = nullptr;
+
+        const std::string portString =
+            std::to_string(port);
+
+        const int resolveResult =
+            getaddrinfo(
+                host,
+                portString.c_str(),
+                &hints,
+                &resolved
+            );
+
+        if (resolveResult == 0 &&
+            resolved != nullptr)
+        {
+            sockaddr_in* resolvedAddress =
+                reinterpret_cast<sockaddr_in*>(
+                    resolved->ai_addr
+                );
+
+            serverAddress.sin_addr =
+                resolvedAddress->sin_addr;
+
+            freeaddrinfo(resolved);
+
+            if (connect(
+                    socketHandle,
+                    reinterpret_cast<sockaddr*>(
+                        &serverAddress
+                    ),
+                    sizeof(serverAddress)
+                ) == 0)
+            {
+                return true;
+            }
+        }
+        else if (resolved != nullptr)
+        {
+            freeaddrinfo(resolved);
+        }
+
+        closeSocket(socketHandle);
+
+        if (attempt < 10)
+        {
+            std::this_thread::sleep_for(
+                std::chrono::seconds(1)
+            );
+        }
+    }
+
+    return false;
+}
+
+bool recordReliableSessions(
     SocketHandle socket,
-    int id,
+    const PlayerConfig& config,
     int sessions
 )
 {
-    const std::string name =
-        id == 101
-            ? "Amish"
-            : id == 102
-                ? "Gurveer"
-                : "Riya";
-
     for (int i = 0; i < sessions; ++i)
     {
-        sendCommand(
-            socket,
+        const std::string connectCommand =
             "CONNECT "
-            + std::to_string(id)
+            + std::to_string(config.id)
             + " "
-            + name
-            + " 1520 India Ranked "
-            + std::to_string(40 + id % 10)
-        );
+            + config.name
+            + " "
+            + std::to_string(config.skill)
+            + " "
+            + config.region
+            + " "
+            + config.mode
+            + " "
+            + std::to_string(config.ping);
 
-        sendCommand(
-            socket,
-            "JOIN_SUCCESS "
-            + std::to_string(id)
-        );
-
-        sendCommand(
-            socket,
-            "QUEUE "
-            + std::to_string(id)
-        );
-
-        sendCommand(
-            socket,
-            "MATCH_START "
-            + std::to_string(id)
-        );
-
-        sendCommand(
-            socket,
-            "MATCH_COMPLETE "
-            + std::to_string(id)
-        );
+        if (!sendCommand(socket, connectCommand)) return false;
+        if (!sendCommand(
+                socket,
+                "JOIN_SUCCESS " + std::to_string(config.id)
+            )) return false;
+        if (!sendCommand(
+                socket,
+                "QUEUE " + std::to_string(config.id)
+            )) return false;
+        if (!sendCommand(
+                socket,
+                "MATCH_START " + std::to_string(config.id)
+            )) return false;
+        if (!sendCommand(
+                socket,
+                "MATCH_COMPLETE " + std::to_string(config.id)
+            )) return false;
 
         if (i % 2 == 0)
         {
-            sendCommand(
-                socket,
-                "CHAT "
-                + std::to_string(id)
-            );
+            if (!sendCommand(
+                    socket,
+                    "CHAT " + std::to_string(config.id)
+                )) return false;
         }
 
-        sendCommand(
-            socket,
-            "END_SESSION "
-            + std::to_string(id)
-        );
+        if (!sendCommand(
+                socket,
+                "END_SESSION " + std::to_string(config.id)
+            )) return false;
 
-        sendCommand(
-            socket,
-            "DISCONNECT_PLAYER "
-            + std::to_string(id)
-        );
+        if (!sendCommand(
+                socket,
+                "DISCONNECT_PLAYER " + std::to_string(config.id)
+            )) return false;
     }
+
+    return true;
 }
 
-void recordUnreliableSessions(
+bool recordUnreliableSessions(
     SocketHandle socket,
-    int id,
+    const PlayerConfig& config,
     int sessions
 )
 {
     for (int i = 0; i < sessions; ++i)
     {
-        sendCommand(
-            socket,
+        const std::string connectCommand =
             "CONNECT "
-            + std::to_string(id)
-            + " Player4 1520 India Ranked 55"
-        );
+            + std::to_string(config.id)
+            + " "
+            + config.name
+            + " "
+            + std::to_string(config.skill)
+            + " "
+            + config.region
+            + " "
+            + config.mode
+            + " "
+            + std::to_string(config.ping);
 
-        sendCommand(
-            socket,
-            "JOIN_FAIL "
-            + std::to_string(id)
-        );
-
-        sendCommand(
-            socket,
-            "QUEUE "
-            + std::to_string(id)
-        );
-
-        sendCommand(
-            socket,
-            "ABANDON "
-            + std::to_string(id)
-        );
-
-        sendCommand(
-            socket,
-            "MATCH_START "
-            + std::to_string(id)
-        );
-
-        sendCommand(
-            socket,
-            "DISCONNECT "
-            + std::to_string(id)
-        );
-
-        sendCommand(
-            socket,
-            "END_SESSION "
-            + std::to_string(id)
-        );
-
-        sendCommand(
-            socket,
-            "DISCONNECT_PLAYER "
-            + std::to_string(id)
-        );
+        if (!sendCommand(socket, connectCommand)) return false;
+        if (!sendCommand(
+                socket,
+                "JOIN_FAIL " + std::to_string(config.id)
+            )) return false;
+        if (!sendCommand(
+                socket,
+                "QUEUE " + std::to_string(config.id)
+            )) return false;
+        if (!sendCommand(
+                socket,
+                "ABANDON " + std::to_string(config.id)
+            )) return false;
+        if (!sendCommand(
+                socket,
+                "MATCH_START " + std::to_string(config.id)
+            )) return false;
+        if (!sendCommand(
+                socket,
+                "DISCONNECT " + std::to_string(config.id)
+            )) return false;
+        if (!sendCommand(
+                socket,
+                "END_SESSION " + std::to_string(config.id)
+            )) return false;
+        if (!sendCommand(
+                socket,
+                "DISCONNECT_PLAYER " + std::to_string(config.id)
+            )) return false;
     }
+
+    return true;
 }
 
-void prepareMatchmakingQueue(SocketHandle socket)
+bool runPlayer(
+    SocketHandle socket,
+    const PlayerConfig& config
+)
 {
     std::cout
-        << "\n========== FINAL MATCHMAKING QUEUE =========="
-        << "\n";
+        << "\n============================================\n"
+        << "PLAYER CONTAINER: "
+        << config.name
+        << " ("
+        << config.id
+        << ")\n"
+        << "============================================\n";
 
-    // Reconnect players after their historical sessions.
-    sendCommand(
-        socket,
-        "CONNECT 101 Amish 1520 India Ranked 41"
-    );
+    if (config.unreliable)
+    {
+        if (!recordUnreliableSessions(socket, config, 6))
+        {
+            return false;
+        }
+    }
+    else
+    {
+        if (!recordReliableSessions(socket, config, 6))
+        {
+            return false;
+        }
+    }
 
-    sendCommand(
-        socket,
-        "CONNECT 102 Gurveer 1520 India Ranked 42"
-    );
+    std::cout
+        << "\n["
+        << config.name
+        << "] Requesting Trust prediction...\n";
 
-    sendCommand(
-        socket,
-        "CONNECT 103 Riya 1520 India Ranked 43"
-    );
+    if (!sendCommand(
+            socket,
+            "TRUST " + std::to_string(config.id)
+        ))
+    {
+        return false;
+    }
 
-    sendCommand(
-        socket,
-        "CONNECT 104 Player4 1520 India Ranked 55"
-    );
+    if (config.startDelaySeconds > 0)
+    {
+        std::cout
+            << "["
+            << config.name
+            << "] Waiting "
+            << config.startDelaySeconds
+            << "s before live matchmaking.\n";
 
-    // Enter all players into the real matchmaking queue.
-    // Player4 is intentionally kept in the queue so the
-    // compatibility engine can demonstrate the effect of Trust.
-    sendCommand(socket, "QUEUE 101");
-    sendCommand(socket, "QUEUE 102");
-    sendCommand(socket, "QUEUE 103");
-    sendCommand(socket, "QUEUE 104");
+        std::this_thread::sleep_for(
+            std::chrono::seconds(
+                config.startDelaySeconds
+            )
+        );
+    }
 
-    sendCommand(socket, "SHOW_QUEUE");
+    if (!sendCommand(
+            socket,
+            "START_MATCHMAKING"
+        ))
+    {
+        return false;
+    }
+
+    if (config.queueDelaySeconds > 0)
+    {
+        std::this_thread::sleep_for(
+            std::chrono::seconds(
+                config.queueDelaySeconds
+            )
+        );
+    }
+
+    const std::string liveConnect =
+        "CONNECT "
+        + std::to_string(config.id)
+        + " "
+        + config.name
+        + " "
+        + std::to_string(config.skill)
+        + " "
+        + config.region
+        + " "
+        + config.mode
+        + " "
+        + std::to_string(config.ping);
+
+    if (!sendCommand(socket, liveConnect))
+    {
+        return false;
+    }
+
+    std::cout
+        << "["
+        << config.name
+        << "] Entering LIVE matchmaking queue...\n";
+
+    if (!sendCommand(
+            socket,
+            "QUEUE " + std::to_string(config.id)
+        ))
+    {
+        return false;
+    }
+
+    std::cout
+        << "["
+        << config.name
+        << "] Live matchmaking complete for this client.\n";
+
+    if (config.lingerSeconds > 0)
+    {
+        std::this_thread::sleep_for(
+            std::chrono::seconds(
+                config.lingerSeconds
+            )
+        );
+    }
+
+    return true;
 }
 
 int main()
@@ -293,98 +545,29 @@ int main()
     }
 #endif
 
-    SocketHandle socketHandle =
-        socket(AF_INET, SOCK_STREAM, 0);
+    const PlayerConfig config =
+        loadConfig();
 
-    if (socketHandle == INVALID_SOCKET_HANDLE)
-    {
-        std::cerr
-            << "Could not create client socket.\n";
-
-#ifdef _WIN32
-        WSACleanup();
-#endif
-
-        return 1;
-    }
-
-    const char* hostEnvironment =
-        std::getenv("NEXUSMATCH_SERVER_HOST");
-
-    const char* portEnvironment =
-        std::getenv("NEXUSMATCH_SERVER_PORT");
-
-    const char* host =
-        hostEnvironment != nullptr
-            ? hostEnvironment
-            : "127.0.0.1";
+    const std::string host =
+        envString(
+            "NEXUSMATCH_SERVER_HOST",
+            "127.0.0.1"
+        );
 
     const int port =
-        portEnvironment != nullptr
-            ? std::atoi(portEnvironment)
-            : 5050;
-
-    sockaddr_in serverAddress{};
-    serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port =
-        htons(
-            static_cast<unsigned short>(port)
+        envInt(
+            "NEXUSMATCH_SERVER_PORT",
+            5050
         );
 
-    // Resolve both IPv4 addresses and Docker DNS names.
-    addrinfo hints{};
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_STREAM;
+    SocketHandle socketHandle =
+        INVALID_SOCKET_HANDLE;
 
-    addrinfo* resolved = nullptr;
-
-    const std::string portString =
-        std::to_string(port);
-
-    const int resolveResult =
-        getaddrinfo(
-            host,
-            portString.c_str(),
-            &hints,
-            &resolved
-        );
-
-    if (resolveResult != 0 ||
-        resolved == nullptr)
-    {
-        std::cerr
-            << "Could not resolve "
-            << host
-            << ":"
-            << port
-            << ".\n";
-
-        closeSocket(socketHandle);
-
-#ifdef _WIN32
-        WSACleanup();
-#endif
-
-        return 1;
-    }
-
-    sockaddr_in* resolvedAddress =
-        reinterpret_cast<sockaddr_in*>(
-            resolved->ai_addr
-        );
-
-    serverAddress.sin_addr =
-        resolvedAddress->sin_addr;
-
-    freeaddrinfo(resolved);
-
-    if (connect(
-            socketHandle,
-            reinterpret_cast<sockaddr*>(
-                &serverAddress
-            ),
-            sizeof(serverAddress)
-        ) < 0)
+    if (!connectToServer(
+            host.c_str(),
+            port,
+            socketHandle
+        ))
     {
         std::cerr
             << "Could not connect to "
@@ -392,8 +575,6 @@ int main()
             << ":"
             << port
             << ".\n";
-
-        closeSocket(socketHandle);
 
 #ifdef _WIN32
         WSACleanup();
@@ -404,113 +585,35 @@ int main()
 
     std::string ready;
 
-    receiveLine(
-        socketHandle,
-        ready
-    );
+    if (!receiveLine(
+            socketHandle,
+            ready
+        ))
+    {
+        std::cerr
+            << "Could not receive server handshake.\n";
+
+        closeSocket(socketHandle);
+
+#ifdef _WIN32
+        WSACleanup();
+#endif
+
+        return 1;
+    }
 
     std::cout
-        << "Server: "
+        << "["
+        << config.name
+        << "] Server: "
         << ready
-        << "\n\n";
-
-    recordReliableSessions(
-        socketHandle,
-        101,
-        6
-    );
-
-    recordReliableSessions(
-        socketHandle,
-        102,
-        6
-    );
-
-    recordReliableSessions(
-        socketHandle,
-        103,
-        6
-    );
-
-    recordUnreliableSessions(
-        socketHandle,
-        104,
-        6
-    );
-
-    std::cout
-        << "\n========== TRUST PREDICTIONS =========="
         << "\n";
 
-    sendCommand(
-        socketHandle,
-        "TRUST 101"
-    );
-
-    sendCommand(
-        socketHandle,
-        "TRUST 102"
-    );
-
-    sendCommand(
-        socketHandle,
-        "TRUST 103"
-    );
-
-    sendCommand(
-        socketHandle,
-        "TRUST 104"
-    );
-
-    sendCommand(
-        socketHandle,
-        "START_MATCHMAKING"
-    );
-
-    prepareMatchmakingQueue(
-        socketHandle
-    );
-
-    std::cout
-        << "\n========== AUTOMATIC MATCHMAKING COMPLETE =========="
-        << "\n"
-        << "The server creates a 3-player match automatically when enough "
-        << "compatible players are waiting.\n"
-        << "No manual MATCHMAKE command is required.\n";
-
-    std::cout
-        << "\n========== PLAYER STATE AFTER MATCH =========="
-        << "\n";
-
-    sendCommand(
-        socketHandle,
-        "SHOW 101"
-    );
-
-    sendCommand(
-        socketHandle,
-        "SHOW 102"
-    );
-
-    sendCommand(
-        socketHandle,
-        "SHOW 103"
-    );
-
-    sendCommand(
-        socketHandle,
-        "SHOW 104"
-    );
-
-    sendCommand(
-        socketHandle,
-        "SHOW_QUEUE"
-    );
-
-    sendCommand(
-        socketHandle,
-        "QUIT"
-    );
+    const bool success =
+        runPlayer(
+            socketHandle,
+            config
+        );
 
     closeSocket(socketHandle);
 
@@ -518,5 +621,5 @@ int main()
     WSACleanup();
 #endif
 
-    return 0;
+    return success ? 0 : 1;
 }
