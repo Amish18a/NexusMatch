@@ -684,23 +684,17 @@ class NexusMatchGUI:
                         ["[SERVER] No recent activity."]
                     )
 
-                self.set_server_status(
-                    connected=True
-                )
+                self.set_server_status(True)
 
                 self.server_info.config(
                     text=f"Live TCP • {SERVER_HOST}:{SERVER_PORT}"
                 )
 
             else:
-                self.set_server_status(
-                    connected=False
-                )
+                self.set_server_status(False)
 
         else:
-            self.set_server_status(
-                connected=False
-            )
+            self.set_server_status(False)
 
             self.set_activity(
                 ["[SERVER] Waiting for NexusMatch server..."]
