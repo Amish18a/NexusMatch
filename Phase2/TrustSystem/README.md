@@ -1,78 +1,163 @@
-# Phase 2 - Trust Score Foundation
+# NexusMatch Phase 2 - Trust, Networking and Intelligent Matchmaking
 
-This module is the first step of the Phase 2 AI/ML work in NexusMatch.
+Phase 2 extends the Phase 1 C++ matchmaking engine with a behavioural Trust
+system, Python ML inference, TCP networking, Docker-based multi-client
+simulation, automatic matchmaking, and live monitoring through the original
+Tkinter GUI.
 
-## Purpose
+## Final Phase 2 architecture
 
-In Phase 1, the matchmaking engine used basic compatibility factors such as skill, ping and waiting time. Phase 2 extends this idea by introducing player reliability as another factor.
-
-The first step is to prepare behavioural player data and calculate a baseline Trust Score. This is a rule-based prototype, not the final machine learning model. The baseline gives us a clear starting point for later AI/ML experiments.
-
-## Current Dota 2 Data Work
-
-We are using four relevant files from the Kaggle **Dota 2 Matches** dataset:
-
-- `match.csv` - match-level context such as duration, game mode, outcome and cluster.
-- `players.csv` - player-level performance and behavioural fields, including `leaver_status`.
-- `player_time.csv` - time-based gold, last-hit and experience information for player slots.
-- `chat.csv` - in-game text messages that can support the planned NLP component.
-
-These four files are imported and preprocessed by `dota2_preprocessing.py`. The script downloads the four files individually through `kagglehub` instead of storing the large raw dataset in the GitHub repository.
-
-## Preprocessing Pipeline
-
-The preprocessing script currently performs:
-
-1. Numeric type conversion and duplicate removal.
-2. Match timestamp conversion and duration conversion.
-3. Player-side and leaver indicators.
-4. KDA calculation and missing-value handling for player performance fields.
-5. Cleaning and forward-filling of the time-series statistics.
-6. Text normalization for chat while keeping the original message content available for NLP.
-7. Chat activity features such as message count, average length and active-chat flag.
-8. Joining the four sources into a player-match feature table.
-9. Creation of a player-level reliability summary for non-anonymous accounts.
-
-Generated outputs are stored locally under `data/dota2_processed/`.
-
-## Important Limitation
-
-The Dota 2 dataset is useful for behavioural modelling, but it does **not** directly contain all of the fields used by the NexusMatch baseline Trust Score, such as matchmaking join attempts or queue abandonment events.
-
-Therefore, the Dota-derived `leaver_rate` and `completion_proxy` are treated as behavioural proxies rather than as direct replacements for the final NexusMatch trust labels. This keeps the research claim aligned with what the source data actually contains.
-
-## Baseline Trust Score
-
-The current NexusMatch prototype combines four reliability components:
-
-- Join reliability: 35%
-- Match completion: 30%
-- Connection stability: 20%
-- Queue reliability: 15%
-
-The final value is scaled to a score from 0 to 100.
-
-The Dota 2 pipeline is a separate data-preparation stage for developing and testing future behavioural/ML features before they are connected to the final trust model.
-
-## Run the Dota 2 Preprocessing
-
-From the `Phase2/TrustSystem` directory:
-
-```bash
-pip install -r requirements.txt
-python dota2_preprocessing.py
+```text
+Independent Docker player containers
+            ↓
+      C++ TCP Event Server
+            ↓
+    PlayerBehaviourTracker
+            ↓
+       14 Trust features
+            ↓
+     Python ML inference
+            ↓
+        Trust Score
+            ↓
+ Queue + Hash Table + AVL Tree
+            ↓
+       MatchmakingEngine
+            ↓
+  Skill + Ping + Trust + Waiting
+            ↓
+      Automatic Match
+            ↓
+      Original Tkinter GUI
 ```
 
-Kaggle authentication may be required by `kagglehub`. The script downloads only the four selected files.
+## Trust model
 
-## Phase 2 Next Steps
+The final deployment-time Trust model uses a NexusMatch-specific synthetic
+behavioural dataset. It is designed around future reliability rather than
+same-session outcome leakage.
 
-1. Explore the Dota-derived behavioural features.
-2. Decide which features can be used as reliable trust predictors.
-3. Add a suitable target/label strategy for ML experiments.
-4. Explore suitable NLP features from the chat data as suggested by the mentor.
-5. Compare ML models for player reliability.
-6. Connect the selected Trust Score features with the C++ matchmaking engine.
-7. Display trust-related information in the monitoring GUI.
+Prepared dataset:
 
-The current code is intentionally kept modular so that the data-preparation stage can be tested independently before integration with the main matchmaking engine.
+- 5,000 simulated players
+- 125,454 simulated sessions
+- 90,454 supervised examples after history construction
+- 33,125 positive examples
+- 57,329 negative examples
+- 14 behavioural features
+
+The target is a future three-session reliability event: an example is positive
+when at least one of the next three sessions is unreliable.
+
+The selected final model is Logistic Regression with chronological
+train/validation/test splitting and probability calibration. The model is a
+Phase 2 research/development model, not a claim of real-world predictive
+performance.
+
+### Final unseen-test results
+
+- Accuracy: 0.5837
+- Balanced Accuracy: 0.6141
+- Precision for unreliable class: 0.4573
+- Recall for unreliable class: 0.7277
+- F1 for unreliable class: 0.5617
+- ROC-AUC: 0.6918
+- Average Precision: 0.6098
+- Brier score: 0.2023
+
+The model primarily uses behavioural reliability features such as disconnect
+rate, join success, queue abandonment, and reconnect success. Ping and waiting
+time remain matchmaking features rather than Trust features.
+
+## Dota 2 research work
+
+The Dota 2 dataset is used as a behavioural/NLP research source and for
+feature exploration. It is not the final NexusMatch Trust training source.
+
+The experiments showed that retrospective and temporal Dota-based reliability
+prediction was too weak to justify using it as the production-style Trust
+model. The Dota pipeline therefore remains a research/preprocessing component,
+while the final Phase 2 inference model uses controlled NexusMatch telemetry.
+
+## Networking and Docker
+
+The Phase 2 server is a C++ TCP server on port 5050 and supports multiple
+concurrent TCP clients.
+
+Docker Compose launches:
+
+```text
+nexusmatch-server
+player-amish
+player-gurveer
+player-riya
+player-player4
+```
+
+Each player container uses the same client image but receives its own player
+configuration through environment variables. Three players use reliable
+behaviour and Player4 uses an intentionally unreliable development profile.
+
+This is controlled simulation telemetry, not real player telemetry.
+
+## Automatic matchmaking
+
+After Trust scores are calculated, live matchmaking is enabled. When enough
+players are waiting, the server automatically:
+
+1. Selects the first waiting player as the anchor.
+2. Retrieves skill-compatible candidates from the AVL tree.
+3. Applies region and game-mode filtering.
+4. Calculates compatibility using skill, ping, Trust and waiting time.
+5. Creates a C++ Match object.
+6. Removes matched players from Queue, AVL and Hash Table.
+
+The current Docker demonstration creates a three-player match from the reliable
+players while the intentionally unreliable Player4 remains waiting.
+
+## Live GUI
+
+The original project GUI remains the only GUI:
+
+    GUI/main.py
+
+It retains the Phase 1 visual design and now reads live state from the C++ TCP
+server through SHOW_ALL.
+
+It displays connected player count, queue size, matches created, player ID,
+name, skill, region, mode, ping, Trust Score, live status, and recent server
+activity.
+
+## Phase 2 status
+
+| Component | Status |
+|---|---|
+| Behaviour telemetry | Complete |
+| 14-feature Trust pipeline | Complete |
+| ML training and inference | Complete |
+| C++ ML bridge | Complete |
+| TCP event server | Complete |
+| Automatic matchmaking | Complete |
+| Queue / Hash / AVL integration | Complete |
+| Docker multi-client simulation | Complete |
+| Original GUI live integration | Complete |
+| End-to-end demonstration | Complete |
+
+## Run the complete demo
+
+From Phase2/TrustSystem:
+
+```powershell
+docker compose -f docker\docker-compose.yml down
+docker compose -f docker\docker-compose.yml up --build
+```
+
+From a second terminal at the repository root:
+
+```powershell
+python GUI\main.py
+```
+
+The Phase 2 implementation is now treated as complete. Further work belongs
+to Phase 3: evaluation, stronger experiments, broader real-world data,
+improved team balancing, and final presentation/research-paper integration.
