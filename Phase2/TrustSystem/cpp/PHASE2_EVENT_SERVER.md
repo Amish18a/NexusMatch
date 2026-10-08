@@ -6,7 +6,7 @@ matchmaking when enough compatible players are waiting.
 
 ## End-to-end flow
 
-    Docker player simulation
+    Independent Docker player containers
         -> TCP event server
         -> PlayerBehaviourTracker
         -> 14 behavioural features
@@ -70,7 +70,6 @@ Player4 remains in the queue.
     SHOW id
     SHOW_QUEUE
     SHOW_ALL
-    START_MATCHMAKING
     QUIT
 
 ## Build on Windows/MinGW
@@ -101,11 +100,12 @@ From `Phase2/TrustSystem`:
     docker compose -f docker\docker-compose.yml down
     docker compose -f docker\docker-compose.yml up --build
 
-The containers simulate six historical sessions for three reliable players and
-one intentionally unreliable player, run the Trust model, reconnect all four
-players, and place them into the matchmaking queue. The server automatically
-creates a three-player match as soon as enough compatible players are waiting.
-The unreliable player remains waiting after the match.
+Docker Compose runs four independent player containers. Each container owns
+one player configuration, opens its own TCP connection, generates six
+historical sessions, requests its Trust prediction, and then enters live
+matchmaking. The reliable players are staggered slightly so their live queue
+forms first; Player4 enters later to demonstrate that the unreliable player
+remains waiting after the three-player match is created.
 
 This remains a controlled development simulation, not real player telemetry.
 
@@ -132,3 +132,20 @@ two seconds. It displays connected players, queue size, matches created,
 player skill, region, mode, ping, Trust, status, and recent server activity.
 
 The GUI is a monitoring client only; it does not create or modify matches.
+
+
+## Multiple Docker clients
+
+The Compose configuration creates:
+
+    nexusmatch-server
+    player-amish
+    player-gurveer
+    player-riya
+    player-player4
+
+All four player services use the same client image but receive different
+environment variables for player identity and behaviour profile. This models
+separate player processes/containers communicating with the same matchmaking
+server rather than one monolithic simulator.
+
