@@ -433,6 +433,7 @@ std::string processCommand(
                 << ",trust=" << playerState.player.getTrustScore()
                 << ",waiting="
                 << (playerState.player.isWaiting() ? "yes" : "no")
+                << ",wait_sec=" << playerState.player.getWaitingTime()
                 << ",connected="
                 << (playerState.connected ? "yes" : "no")
                 << ",sessions="
@@ -486,6 +487,45 @@ std::string processCommand(
         state.player.setTrustScore(trustScore);
 
         return "OK TRUST_SET " + std::to_string(trustScore);
+    }
+
+    // Phase 3.5: synchronise the persistent API queue timer with the
+    // live C++ Player copies used by the queue, AVL tree and hash table.
+    if (command == "SET_WAIT")
+    {
+        int waitingSeconds = -1;
+
+        if (!(parser >> waitingSeconds) || waitingSeconds < 0)
+        {
+            return "ERROR SET_WAIT playerId nonnegativeSeconds";
+        }
+
+        // Waiting time is meaningful only while the player is in the queue.
+        if (state.player.isWaiting())
+        {
+            if (!matchmaking.queue.updatePlayerWaitingTime(id, waitingSeconds))
+            {
+                return "ERROR player is marked waiting but missing from queue";
+            }
+
+            // AVLTree stores a Player copy; remove/reinsert to update that copy.
+            matchmaking.skillTree.remove(state.player);
+            state.player.setWaitingTime(waitingSeconds);
+            matchmaking.skillTree.insert(state.player);
+
+            // HashTable also stores a Player copy.
+            Player* indexedPlayer = matchmaking.playerTable.search(id);
+            if (indexedPlayer != nullptr)
+            {
+                indexedPlayer->setWaitingTime(waitingSeconds);
+            }
+        }
+        else
+        {
+            state.player.setWaitingTime(waitingSeconds);
+        }
+
+        return "OK WAIT_SET " + std::to_string(waitingSeconds);
     }
 
     if (command == "JOIN_SUCCESS")
