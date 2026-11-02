@@ -467,6 +467,27 @@ std::string processCommand(
     PlayerState& state = players[id];
     std::string error;
 
+    // Phase 3: allow the web/API layer to apply a Trust prediction
+    // computed from the selected player's stored behavioural profile.
+    if (command == "SET_TRUST")
+    {
+        int trustScore = -1;
+
+        if (!(parser >> trustScore))
+        {
+            return "ERROR SET_TRUST playerId score";
+        }
+
+        if (trustScore < 0 || trustScore > 100)
+        {
+            return "ERROR trust score must be between 0 and 100";
+        }
+
+        state.player.setTrustScore(trustScore);
+
+        return "OK TRUST_SET " + std::to_string(trustScore);
+    }
+
     if (command == "JOIN_SUCCESS")
     {
         if (!ensureActive(state, error))
