@@ -504,6 +504,13 @@ std::string processCommand(
         // Waiting time is meaningful only while the player is in the queue.
         if (state.player.isWaiting())
         {
+            // Check every indexed copy before changing any of them.
+            Player* indexedPlayer = matchmaking.playerTable.search(id);
+            if (indexedPlayer == nullptr)
+            {
+                return "ERROR player is marked waiting but missing from hash table";
+            }
+
             if (!matchmaking.queue.updatePlayerWaitingTime(id, waitingSeconds))
             {
                 return "ERROR player is marked waiting but missing from queue";
@@ -515,11 +522,7 @@ std::string processCommand(
             matchmaking.skillTree.insert(state.player);
 
             // HashTable also stores a Player copy.
-            Player* indexedPlayer = matchmaking.playerTable.search(id);
-            if (indexedPlayer != nullptr)
-            {
-                indexedPlayer->setWaitingTime(waitingSeconds);
-            }
+            indexedPlayer->setWaitingTime(waitingSeconds);
         }
         else
         {
