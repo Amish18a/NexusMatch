@@ -130,3 +130,26 @@ bool PlayerQueue::removePlayer(int playerId)
 
     return false;
 }
+
+bool PlayerQueue::updatePlayerWaitingTime(int playerId, int waitingTime)
+{
+    if (isEmpty())
+    {
+        return false;
+    }
+
+    int current = front;
+
+    for (int i = 0; i < size; ++i)
+    {
+        if (players[current].getId() == playerId)
+        {
+            players[current].setWaitingTime(waitingTime);
+            return true;
+        }
+
+        current = (current + 1) % capacity;
+    }
+
+    return false;
+}
