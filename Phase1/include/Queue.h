@@ -26,6 +26,7 @@ class PlayerQueue
 
         void display() const;
         bool removePlayer(int playerId);
+        bool updatePlayerWaitingTime(int playerId, int waitingTime);
 };
 
 #endif
