@@ -78,7 +78,8 @@ double MatchmakingEngine::calculateCompatibilityScore(const Player& player,const
     double skillScore=calculateSkillScore(player,candidate);
     double pingScore=calculatePingScore(player,candidate);
     double trustScore=calculateTrustScore(player,candidate);
-    double waitingScore=calculateWaitingScore(player);
+    double waitingScore =
+        (calculateWaitingScore(player) + calculateWaitingScore(candidate)) / 2.0;
     double finalScore =(skillScore * 0.50)+ (pingScore * 0.20)+ (trustScore * 0.20)+ (waitingScore * 0.10);
     return finalScore;
 }
@@ -152,9 +153,10 @@ bool MatchmakingEngine::findMatch(
             );
 
         double waitingScore =
-            calculateWaitingScore(
-                player
-            );
+            (
+                calculateWaitingScore(player)
+                + calculateWaitingScore(candidate)
+            ) / 2.0;
 
         // Calculate final compatibility score
         double finalScore =
@@ -247,9 +249,10 @@ bool MatchmakingEngine::findGroupMatch(
             );
 
         double waitingScore =
-            calculateWaitingScore(
-                player
-            );
+            (
+                calculateWaitingScore(player)
+                + calculateWaitingScore(candidate)
+            ) / 2.0;
 
         double finalScore =
               (skillScore * 0.50)
