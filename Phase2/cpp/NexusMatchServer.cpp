@@ -79,7 +79,8 @@ bool isMonitoringCommand(const std::string& command)
     return command == "SHOW_ALL"
         || command == "SHOW_QUEUE"
         || command == "SHOW"
-        || command == "START_MATCHMAKING";
+        || command == "START_MATCHMAKING"
+        || command == "SET_WAIT";
 }
 
 void closeSocket(SocketHandle socket)
