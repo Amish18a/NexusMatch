@@ -1,0 +1,49 @@
+services:
+  nexusmatch-server:
+    build:
+      context: ..
+      dockerfile: Phase2/docker/Dockerfile
+    container_name: nexusmatch-phase3-cpp
+    ports:
+      - "5050:5050"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.create_connection(('127.0.0.1',5050),2); s.close()"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  nexusmatch-api:
+    build:
+      context: ..
+      dockerfile: Phase3/backend/Dockerfile
+    container_name: nexusmatch-phase3-api
+    environment:
+      NEXUSMATCH_SERVER_HOST: nexusmatch-server
+      NEXUSMATCH_SERVER_PORT: "5050"
+      NEXUSMATCH_DATA_DIR: /app/data
+    ports:
+      - "8000:8000"
+    volumes:
+      - nexusmatch-phase3-data:/app/data
+    depends_on:
+      nexusmatch-server:
+        condition: service_healthy
+    restart: unless-stopped
+
+  nexusmatch-web:
+    build:
+      context: ..
+      dockerfile: Phase3/frontend/Dockerfile
+    container_name: nexusmatch-phase3-web
+    environment:
+      VITE_API_URL: http://localhost:8000
+    ports:
+      - "5173:5173"
+    depends_on:
+      - nexusmatch-api
+    restart: unless-stopped
+
+volumes:
+  nexusmatch-phase3-data:
