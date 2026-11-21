@@ -79,7 +79,8 @@ bool isMonitoringCommand(const std::string& command)
     return command == "SHOW_ALL"
         || command == "SHOW_QUEUE"
         || command == "SHOW"
-        || command == "START_MATCHMAKING";
+        || command == "START_MATCHMAKING"
+        || command == "SET_WAIT";
 }
 
 void closeSocket(SocketHandle socket)
@@ -433,6 +434,7 @@ std::string processCommand(
                 << ",trust=" << playerState.player.getTrustScore()
                 << ",waiting="
                 << (playerState.player.isWaiting() ? "yes" : "no")
+                << ",wait_sec=" << playerState.player.getWaitingTime()
                 << ",connected="
                 << (playerState.connected ? "yes" : "no")
                 << ",sessions="
@@ -466,6 +468,69 @@ std::string processCommand(
 
     PlayerState& state = players[id];
     std::string error;
+
+    // Phase 3: allow the web/API layer to apply a Trust prediction
+    // computed from the selected player's stored behavioural profile.
+    if (command == "SET_TRUST")
+    {
+        int trustScore = -1;
+
+        if (!(parser >> trustScore))
+        {
+            return "ERROR SET_TRUST playerId score";
+        }
+
+        if (trustScore < 0 || trustScore > 100)
+        {
+            return "ERROR trust score must be between 0 and 100";
+        }
+
+        state.player.setTrustScore(trustScore);
+
+        return "OK TRUST_SET " + std::to_string(trustScore);
+    }
+
+    // Phase 3.5: synchronise the persistent API queue timer with the
+    // live C++ Player copies used by the queue, AVL tree and hash table.
+    if (command == "SET_WAIT")
+    {
+        int waitingSeconds = -1;
+
+        if (!(parser >> waitingSeconds) || waitingSeconds < 0)
+        {
+            return "ERROR SET_WAIT playerId nonnegativeSeconds";
+        }
+
+        // Waiting time is meaningful only while the player is in the queue.
+        if (state.player.isWaiting())
+        {
+            // Check every indexed copy before changing any of them.
+            Player* indexedPlayer = matchmaking.playerTable.search(id);
+            if (indexedPlayer == nullptr)
+            {
+                return "ERROR player is marked waiting but missing from hash table";
+            }
+
+            if (!matchmaking.queue.updatePlayerWaitingTime(id, waitingSeconds))
+            {
+                return "ERROR player is marked waiting but missing from queue";
+            }
+
+            // AVLTree stores a Player copy; remove/reinsert to update that copy.
+            matchmaking.skillTree.remove(state.player);
+            state.player.setWaitingTime(waitingSeconds);
+            matchmaking.skillTree.insert(state.player);
+
+            // HashTable also stores a Player copy.
+            indexedPlayer->setWaitingTime(waitingSeconds);
+        }
+        else
+        {
+            state.player.setWaitingTime(waitingSeconds);
+        }
+
+        return "OK WAIT_SET " + std::to_string(waitingSeconds);
+    }
 
     if (command == "JOIN_SUCCESS")
     {
